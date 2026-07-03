@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Lumen — AI Chat</title>
+<meta name="description" content="Lumen, il tuo assistente AI personale." />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23e8823c'/%3E%3Cpath d='M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z' fill='white'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+<div class="app" id="app">
+
+  <button class="scrim" id="scrim" aria-hidden="true" tabindex="-1"></button>
+
+  <aside class="sidebar" id="sidebar" aria-label="Cronologia conversazioni">
+    <div class="sidebar-top">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="var(--accent)"/>
+          <path d="M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z" fill="var(--accent-ink)"/>
+        </svg>
+        <span>Lumen</span>
+      </div>
+      <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Chiudi menu">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <button class="new-chat-btn" id="newChatBtn">
+      <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Nuova chat
+    </button>
+
+    <nav class="history" id="history" aria-label="Chat salvate"></nav>
+
+    <div class="sidebar-bottom">
+      <button class="icon-text-btn" id="themeToggle">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="theme-label">Tema</span>
+      </button>
+      <button class="icon-text-btn danger" id="clearAllBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Elimina cronologia
+      </button>
+    </div>
+  </aside>
+
+  <main class="chat">
+    <header class="chat-header">
+      <button class="icon-btn sidebar-open" id="sidebarOpen" aria-label="Apri menu">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="header-title" id="headerTitle">Nuova chat</div>
+      <div class="model-badge" id="modelBadge">
+        <span class="dot"></span>
+        <span id="modelBadgeText">Lumen</span>
+      </div>
+    </header>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="welcome" id="welcome">
+        <svg class="welcome-mark" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="var(--accent)"/>
+          <path d="M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z" fill="var(--accent-ink)"/>
+        </svg>
+        <h1>Ciao, sono Lumen.</h1>
+        <p>Chiedimi qualsiasi cosa: posso spiegare, scrivere, programmare, tradurre e molto altro.</p>
+        <div class="suggestions" id="suggestions">
+          <button class="chip" data-prompt="Spiegami la teoria della relativit&agrave; in modo semplice">Spiegami un concetto difficile in modo semplice</button>
+          <button class="chip" data-prompt="Scrivi una funzione Python che ordina una lista con quicksort">Scrivi una funzione Python</button>
+          <button class="chip" data-prompt="Dammi 5 idee originali per un progetto personale con l'AI">Idee per un progetto</button>
+          <button class="chip" data-prompt="Correggi e migliora questo testo: 'Ciao volevo dire che oggi vado al mare'">Migliora un testo</button>
+        </div>
+      </div>
+
+      <div class="messages" id="messages" role="log" aria-live="polite"></div>
+    </div>
+
+    <div class="composer-wrap">
+      <form class="composer" id="composer">
+        <textarea
+          id="input"
+          class="composer-input"
+          placeholder="Scrivi un messaggio a Lumen..."
+          rows="1"
+          autocomplete="off"
+          spellcheck="true"
+        ></textarea>
+        <button type="submit" class="send-btn" id="sendBtn" aria-label="Invia messaggio">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="stop-btn hidden" id="stopBtn" aria-label="Interrompi generazione">
+          <svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+        </button>
+      </form>
+      <div class="composer-hint">Lumen pu&ograve; commettere errori. Verifica le informazioni importanti.</div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
