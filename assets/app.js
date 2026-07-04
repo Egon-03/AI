@@ -4,6 +4,7 @@
   var CONFIG = window.APP_CONFIG || {};
   var STORAGE_KEY = "lumen.conversations.v1";
   var THEME_KEY = "lumen.theme";
+  var AUTH_KEY = "grassiai.auth";
 
   var els = {
     app: document.getElementById("app"),
@@ -15,6 +16,7 @@
     history: document.getElementById("history"),
     themeToggle: document.getElementById("themeToggle"),
     clearAllBtn: document.getElementById("clearAllBtn"),
+    logoutBtn: document.getElementById("logoutBtn"),
     headerTitle: document.getElementById("headerTitle"),
     modelBadgeText: document.getElementById("modelBadgeText"),
     chatScroll: document.getElementById("chatScroll"),
@@ -24,6 +26,10 @@
     input: document.getElementById("input"),
     sendBtn: document.getElementById("sendBtn"),
     stopBtn: document.getElementById("stopBtn"),
+    loginForm: document.getElementById("loginForm"),
+    loginPassword: document.getElementById("loginPassword"),
+    loginBtn: document.getElementById("loginBtn"),
+    loginError: document.getElementById("loginError"),
   };
 
   var state = {
@@ -39,9 +45,68 @@
     loadTheme();
     loadConversations();
     bindEvents();
+    bindLoginEvents();
     renderHistory();
     autoResizeTextarea();
     applyBranding();
+    if (localStorage.getItem(AUTH_KEY)) {
+      document.body.classList.add("authed");
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Login / logout
+  // ---------------------------------------------------------------
+  function bindLoginEvents() {
+    els.loginForm.addEventListener("submit", onLoginSubmit);
+    els.logoutBtn.addEventListener("click", logout);
+  }
+
+  function onLoginSubmit(e) {
+    e.preventDefault();
+    var pw = els.loginPassword.value;
+    if (!pw || els.loginBtn.disabled) return;
+
+    els.loginBtn.disabled = true;
+    els.loginError.classList.add("hidden");
+
+    fetch(CONFIG.workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pw }),
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("bad credentials");
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || !data.ok) throw new Error("bad credentials");
+        localStorage.setItem(AUTH_KEY, pw);
+        els.loginPassword.value = "";
+        document.body.classList.add("authed");
+      })
+      .catch(function () {
+        els.loginError.textContent = "Password errata, riprova.";
+        els.loginError.classList.remove("hidden");
+      })
+      .finally(function () {
+        els.loginBtn.disabled = false;
+      });
+  }
+
+  function logout() {
+    localStorage.removeItem(AUTH_KEY);
+    document.body.classList.remove("authed");
+    els.loginPassword.value = "";
+    els.loginError.classList.add("hidden");
+    closeSidebarMobile();
+  }
+
+  function handleUnauthorized() {
+    localStorage.removeItem(AUTH_KEY);
+    document.body.classList.remove("authed");
+    els.loginError.textContent = "Sessione scaduta o password cambiata. Reinserisci la password.";
+    els.loginError.classList.remove("hidden");
   }
 
   function applyBranding() {
@@ -334,10 +399,18 @@
     fetch(CONFIG.workerUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: CONFIG.model, stream: true, messages: payloadMessages }),
+      body: JSON.stringify({
+        model: CONFIG.model,
+        stream: true,
+        messages: payloadMessages,
+        password: localStorage.getItem(AUTH_KEY) || "",
+      }),
       signal: controller.signal,
     })
       .then(function (res) {
+        if (res.status === 401) {
+          throw new Error("__unauthorized__");
+        }
         if (!res.ok) {
           return res.text().then(function (body) {
             throw new Error("HTTP " + res.status + " — " + body.slice(0, 300));
@@ -381,7 +454,12 @@
       })
       .catch(function (err) {
         finished = true;
-        if (err.name === "AbortError") {
+        if (err.message === "__unauthorized__") {
+          msgEl.remove();
+          setStreamingUI(false);
+          state.abortController = null;
+          handleUnauthorized();
+        } else if (err.name === "AbortError") {
           finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted");
         } else {
           finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err));

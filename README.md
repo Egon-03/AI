@@ -36,6 +36,17 @@ wrangler secret put GROQ_API_KEY
 # incolla qui la chiave copiata al passo 1 e premi invio
 ```
 
+### Proteggi il sito con una password (schermata di login)
+
+Il sito mostra sempre una schermata di login, ma finché non imposti questo secret **chiunque può entrare inserendo una password qualsiasi**. Per proteggerlo davvero:
+
+```bash
+wrangler secret put SITE_PASSWORD
+# scegli e incolla qui la password che vuoi usare per accedere al sito
+```
+
+La password non finisce mai nel codice pubblico: viene verificata lato server dal Worker a ogni richiesta. Per cambiarla in futuro basta rilanciare lo stesso comando; per rimuovere del tutto la protezione, esegui `wrangler secret delete SITE_PASSWORD`.
+
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 
 ```

@@ -10,6 +10,20 @@
 <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <svg class="login-mark" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true">
+      <circle cx="16" cy="16" r="16" fill="var(--accent)"/>
+      <text x="16" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="20" fill="#fff">G</text>
+    </svg>
+    <h1 id="loginHeading">Accedi a Grassi AI</h1>
+    <p>Inserisci la password per continuare.</p>
+    <input type="password" id="loginPassword" class="login-input" placeholder="Password" autocomplete="current-password" autofocus />
+    <button type="submit" class="login-btn" id="loginBtn">Entra</button>
+    <div class="login-error hidden" id="loginError">Password errata, riprova.</div>
+  </form>
+</div>
+
 <div class="app" id="app">
 
   <button class="scrim" id="scrim" aria-hidden="true" tabindex="-1"></button>
@@ -44,6 +58,10 @@
       <button class="icon-text-btn danger" id="clearAllBtn">
         <svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Elimina cronologia
+      </button>
+      <button class="icon-text-btn" id="logoutBtn">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Esci
       </button>
     </div>
   </aside>
