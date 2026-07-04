@@ -19,7 +19,6 @@
     modelBadgeText: document.getElementById("modelBadgeText"),
     chatScroll: document.getElementById("chatScroll"),
     welcome: document.getElementById("welcome"),
-    suggestions: document.getElementById("suggestions"),
     messages: document.getElementById("messages"),
     composer: document.getElementById("composer"),
     input: document.getElementById("input"),
@@ -42,8 +41,20 @@
     bindEvents();
     renderHistory();
     autoResizeTextarea();
-    els.modelBadgeText.textContent = CONFIG.appName || "Lumen";
-    document.title = (CONFIG.appName || "Lumen") + " — AI Chat";
+    applyBranding();
+  }
+
+  function applyBranding() {
+    var name = CONFIG.appName || "Grassi AI";
+    els.modelBadgeText.textContent = name;
+    document.title = name + " — AI Chat";
+    var brandName = document.getElementById("brandName");
+    if (brandName) brandName.textContent = name;
+    var welcomeHeading = document.getElementById("welcomeHeading");
+    if (welcomeHeading) welcomeHeading.textContent = "Ciao, sono " + name + ".";
+    var composerHint = document.getElementById("composerHint");
+    if (composerHint) composerHint.textContent = name + " può commettere errori. Verifica le informazioni importanti.";
+    els.input.placeholder = "Scrivi un messaggio a " + name + "...";
   }
 
   // ---------------------------------------------------------------
@@ -104,14 +115,6 @@
     els.sidebarOpen.addEventListener("click", function () { els.app.classList.add("sidebar-visible"); });
     els.sidebarClose.addEventListener("click", closeSidebarMobile);
     els.scrim.addEventListener("click", closeSidebarMobile);
-
-    els.suggestions.addEventListener("click", function (e) {
-      var chip = e.target.closest(".chip");
-      if (!chip) return;
-      els.input.value = chip.getAttribute("data-prompt") || chip.textContent;
-      autoResizeTextarea();
-      els.composer.requestSubmit();
-    });
 
     els.composer.addEventListener("submit", onSubmit);
     els.input.addEventListener("input", autoResizeTextarea);
@@ -428,7 +431,7 @@
   // Rendering messages
   // ---------------------------------------------------------------
   var assistantAvatarSvg =
-    '<svg viewBox="0 0 32 32" width="16" height="16"><path d="M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z" fill="var(--accent-ink)"/></svg>';
+    '<svg viewBox="0 0 32 32" width="16" height="16"><text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#fff">G</text></svg>';
 
   function appendMessageEl(role, text, isStreamingPlaceholder) {
     var wrap = document.createElement("div");

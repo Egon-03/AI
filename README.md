@@ -1,4 +1,4 @@
-# Lumen — AI Chat
+# Grassi AI — AI Chat
 
 Un'interfaccia di chat AI in stile Claude / ChatGPT / Copilot: sidebar con cronologia, risposte in streaming, rendering markdown (elenchi, grassetto, blocchi di codice con pulsante copia), tema chiaro/scuro automatico, completamente responsive.
 
@@ -39,7 +39,7 @@ wrangler secret put GROQ_API_KEY
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 
 ```
-https://lumen-ai-proxy.<tuo-account>.workers.dev
+https://grassi-ai-proxy.<tuo-account>.workers.dev
 ```
 
 Copialo: ti servirà al passo successivo.
@@ -51,7 +51,7 @@ Copialo: ti servirà al passo successivo.
 Apri `assets/config.js` e sostituisci `workerUrl` con l'URL ottenuto al passo 2:
 
 ```js
-workerUrl: "https://lumen-ai-proxy.<tuo-account>.workers.dev",
+workerUrl: "https://grassi-ai-proxy.<tuo-account>.workers.dev",
 ```
 
 Puoi anche personalizzare qui il nome dell'app (`appName`), il modello Groq usato (`model` — vedi l'elenco su [console.groq.com/docs/models](https://console.groq.com/docs/models)) e il messaggio di sistema (`systemPrompt`).
