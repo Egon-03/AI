@@ -6,7 +6,7 @@ window.APP_CONFIG = {
   // URL del Cloudflare Worker che fa da proxy verso l'API Groq.
   // Dopo aver eseguito `wrangler deploy` nella cartella /worker, incolla qui
   // l'URL stampato in console (es. "https://lumen-ai-proxy.tuonome.workers.dev").
-  workerUrl: "https://REPLACE-WITH-YOUR-WORKER-URL.workers.dev",
+  workerUrl: "https://grassi-ai-proxy.egon-grassi2003.workers.dev/",
 
   // Modello Groq da usare. Vedi https://console.groq.com/docs/models
   model: "llama-3.3-70b-versatile",
