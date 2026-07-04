@@ -115,10 +115,79 @@ button {
 a { color: var(--accent); }
 
 /* ---------------------------------------------------------------
+   Login screen
+--------------------------------------------------------------- */
+.app { display: none; }
+body.authed .app { display: grid; }
+body.authed .login-screen { display: none; }
+
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 32px 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.login-mark { margin-bottom: 14px; }
+.login-card h1 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.login-card > p {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin: 0 0 20px;
+}
+.login-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  font-size: 15px;
+  outline: none;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  transition: background 0.15s ease;
+}
+.login-btn:hover { background: var(--accent-hover); }
+.login-btn:disabled { opacity: 0.6; cursor: default; }
+.login-error {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+/* ---------------------------------------------------------------
    App shell
 --------------------------------------------------------------- */
 .app {
-  display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   height: 100dvh;
   overflow: hidden;
