@@ -1,33 +1,33 @@
 /* ---------------------------------------------------------------
-   Lumen — design tokens
+   Grassi AI — design tokens
 --------------------------------------------------------------- */
 :root {
-  --bg: #faf8f5;
+  --bg: #f6f7fa;
   --bg-elevated: #ffffff;
-  --sidebar-bg: #f1ede6;
-  --border: #e6e0d6;
-  --text: #262220;
-  --text-muted: #7a7168;
-  --text-faint: #a39a8f;
+  --sidebar-bg: #eef1f6;
+  --border: #e1e5ec;
+  --text: #1a1d24;
+  --text-muted: #666e7f;
+  --text-faint: #99a1b1;
 
-  --accent: #e8823c;
-  --accent-hover: #d97230;
-  --accent-ink: #2a1608;
-  --accent-soft: #fdeee0;
+  --accent: #3661e0;
+  --accent-hover: #2b4fc4;
+  --accent-ink: #0d1b4c;
+  --accent-soft: #e8edfc;
 
-  --user-bubble: #eee7db;
+  --user-bubble: #eef1f6;
   --assistant-bg: transparent;
-  --danger: #c0503a;
+  --danger: #c93f34;
 
-  --code-bg: #2b2622;
-  --code-text: #f1ece3;
-  --inline-code-bg: #ece5d8;
+  --code-bg: #1c2230;
+  --code-text: #eef1f6;
+  --inline-code-bg: #e6e9f0;
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
-  --shadow-sm: 0 1px 2px rgba(30, 20, 10, 0.06);
-  --shadow-md: 0 8px 24px rgba(30, 20, 10, 0.10);
+  --shadow-sm: 0 1px 2px rgba(20, 25, 40, 0.06);
+  --shadow-md: 0 8px 24px rgba(20, 25, 40, 0.10);
 
   --sidebar-w: 272px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
@@ -35,26 +35,26 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #1c1a18;
-  --bg-elevated: #242220;
-  --sidebar-bg: #171615;
-  --border: #34302b;
-  --text: #ece7df;
-  --text-muted: #a49c91;
-  --text-faint: #6f675e;
+  --bg: #14161c;
+  --bg-elevated: #1b1e27;
+  --sidebar-bg: #101218;
+  --border: #2b2f3a;
+  --text: #e7e9ee;
+  --text-muted: #9aa1b1;
+  --text-faint: #666d7d;
 
-  --accent: #f0954f;
-  --accent-hover: #f5a565;
-  --accent-ink: #241206;
-  --accent-soft: #3a2415;
+  --accent: #6f93ff;
+  --accent-hover: #86a4ff;
+  --accent-ink: #0b1330;
+  --accent-soft: #1c2540;
 
-  --user-bubble: #2f2b26;
+  --user-bubble: #232733;
   --assistant-bg: transparent;
-  --danger: #e08469;
+  --danger: #e2685f;
 
-  --code-bg: #131110;
-  --code-text: #f1ece3;
-  --inline-code-bg: #322d27;
+  --code-bg: #0f1117;
+  --code-text: #eef1f6;
+  --inline-code-bg: #262b37;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.35);
@@ -62,26 +62,26 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1c1a18;
-    --bg-elevated: #242220;
-    --sidebar-bg: #171615;
-    --border: #34302b;
-    --text: #ece7df;
-    --text-muted: #a49c91;
-    --text-faint: #6f675e;
+    --bg: #14161c;
+    --bg-elevated: #1b1e27;
+    --sidebar-bg: #101218;
+    --border: #2b2f3a;
+    --text: #e7e9ee;
+    --text-muted: #9aa1b1;
+    --text-faint: #666d7d;
 
-    --accent: #f0954f;
-    --accent-hover: #f5a565;
-    --accent-ink: #241206;
-    --accent-soft: #3a2415;
+    --accent: #6f93ff;
+    --accent-hover: #86a4ff;
+    --accent-ink: #0b1330;
+    --accent-soft: #1c2540;
 
-    --user-bubble: #2f2b26;
+    --user-bubble: #232733;
     --assistant-bg: transparent;
-    --danger: #e08469;
+    --danger: #e2685f;
 
-    --code-bg: #131110;
-    --code-text: #f1ece3;
-    --inline-code-bg: #322d27;
+    --code-bg: #0f1117;
+    --code-text: #eef1f6;
+    --inline-code-bg: #262b37;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
     --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.35);
@@ -361,25 +361,6 @@ a { color: var(--accent); }
   font-size: 15px;
   margin: 0 0 28px;
 }
-
-.suggestions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  text-align: left;
-}
-.chip {
-  padding: 13px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  font-size: 13.5px;
-  color: var(--text);
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, transform 0.1s ease;
-}
-.chip:hover { border-color: var(--accent); transform: translateY(-1px); }
-.chip:active { transform: translateY(0); }
 
 /* ---------------------------------------------------------------
    Messages
@@ -676,7 +657,6 @@ pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius
   .app.sidebar-visible .scrim { display: block; }
   .sidebar-close { display: flex; }
   .sidebar-open { display: flex; }
-  .suggestions { grid-template-columns: 1fr; }
   .welcome { padding-top: 8vh; }
   .msg.user .msg-body { max-width: 92%; }
 }

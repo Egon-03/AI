@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Lumen — AI Chat</title>
-<meta name="description" content="Lumen, il tuo assistente AI personale." />
+<title>Grassi AI — AI Chat</title>
+<meta name="description" content="Grassi AI, il tuo assistente AI personale." />
 <meta name="color-scheme" content="light dark" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23e8823c'/%3E%3Cpath d='M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z' fill='white'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%233661e0'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Arial,sans-serif' font-weight='700' font-size='18' fill='white'%3EG%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
@@ -19,9 +19,9 @@
       <div class="brand">
         <svg class="brand-mark" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
           <circle cx="16" cy="16" r="16" fill="var(--accent)"/>
-          <path d="M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z" fill="var(--accent-ink)"/>
+          <text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#fff">G</text>
         </svg>
-        <span>Lumen</span>
+        <span id="brandName">Grassi AI</span>
       </div>
       <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Chiudi menu">
         <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -56,7 +56,7 @@
       <div class="header-title" id="headerTitle">Nuova chat</div>
       <div class="model-badge" id="modelBadge">
         <span class="dot"></span>
-        <span id="modelBadgeText">Lumen</span>
+        <span id="modelBadgeText">Grassi AI</span>
       </div>
     </header>
 
@@ -64,16 +64,10 @@
       <div class="welcome" id="welcome">
         <svg class="welcome-mark" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true">
           <circle cx="16" cy="16" r="16" fill="var(--accent)"/>
-          <path d="M16 7c-1 4-3 6-7 7 4 1 6 3 7 7 1-4 3-6 7-7-4-1-6-3-7-7z" fill="var(--accent-ink)"/>
+          <text x="16" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="20" fill="#fff">G</text>
         </svg>
-        <h1>Ciao, sono Lumen.</h1>
+        <h1 id="welcomeHeading">Ciao, sono Grassi AI.</h1>
         <p>Chiedimi qualsiasi cosa: posso spiegare, scrivere, programmare, tradurre e molto altro.</p>
-        <div class="suggestions" id="suggestions">
-          <button class="chip" data-prompt="Spiegami la teoria della relativit&agrave; in modo semplice">Spiegami un concetto difficile in modo semplice</button>
-          <button class="chip" data-prompt="Scrivi una funzione Python che ordina una lista con quicksort">Scrivi una funzione Python</button>
-          <button class="chip" data-prompt="Dammi 5 idee originali per un progetto personale con l'AI">Idee per un progetto</button>
-          <button class="chip" data-prompt="Correggi e migliora questo testo: 'Ciao volevo dire che oggi vado al mare'">Migliora un testo</button>
-        </div>
       </div>
 
       <div class="messages" id="messages" role="log" aria-live="polite"></div>
@@ -84,7 +78,7 @@
         <textarea
           id="input"
           class="composer-input"
-          placeholder="Scrivi un messaggio a Lumen..."
+          placeholder="Scrivi un messaggio a Grassi AI..."
           rows="1"
           autocomplete="off"
           spellcheck="true"
@@ -96,7 +90,7 @@
           <svg viewBox="0 0 24 24" width="16" height="16"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
         </button>
       </form>
-      <div class="composer-hint">Lumen pu&ograve; commettere errori. Verifica le informazioni importanti.</div>
+      <div class="composer-hint" id="composerHint">Grassi AI pu&ograve; commettere errori. Verifica le informazioni importanti.</div>
     </div>
   </main>
 </div>

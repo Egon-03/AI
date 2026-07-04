@@ -1,5 +1,5 @@
 /**
- * Lumen — Cloudflare Worker proxy for the Groq API.
+ * Grassi AI — Cloudflare Worker proxy for the Groq API.
  *
  * This worker exists so the Groq API key never has to live in the browser.
  * The frontend calls this worker, the worker attaches the secret key and
