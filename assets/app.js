@@ -7,6 +7,7 @@
   var AUTH_KEY = "grassiai.auth";
   var MODEL_KEY = "grassiai.model";
   var AUTO_VALUE = "auto";
+  var FALLBACK_MODEL = "openai/gpt-oss-120b";
 
   var els = {
     app: document.getElementById("app"),
@@ -171,7 +172,7 @@
     var reasoningPattern = /\b(spiega (in dettaglio|passo passo|passo per passo)|analizza|confronta|pro e contro|dimostra|argomenta|approfondisci|strategia|pianifica|valuta)\b/;
 
     if (livePattern.test(t)) return "groq/compound";
-    if (codePattern.test(t)) return "moonshotai/kimi-k2-instruct-0905";
+    if (codePattern.test(t)) return "qwen/qwen3.6-27b";
     if (mathPattern.test(t)) return "groq/compound";
     if (visionPattern.test(t)) return "qwen/qwen3.6-27b";
     if (reasoningPattern.test(t) || t.length > 400) return "openai/gpt-oss-120b";
@@ -422,10 +423,11 @@
     var isAutoMode = selectedModel === AUTO_VALUE;
     var lastUserMsg = convo.messages[convo.messages.length - 1];
     var resolvedModel = isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel;
-    var modelTag = isAutoMode ? resolvedModel : null;
+    var currentModel = resolvedModel;
+    var didFallback = false;
 
     setStreamingUI(true);
-    var msgEl = appendMessageEl("assistant", "", true, modelTag);
+    var msgEl = appendMessageEl("assistant", "", true, isAutoMode ? resolvedModel : null);
     var contentEl = msgEl.querySelector(".msg-content");
     contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
 
@@ -440,6 +442,19 @@
     var firstChunk = true;
     var renderPending = false;
     var finished = false;
+
+    function updateModelTag(modelId) {
+      currentModel = modelId;
+      var actions = msgEl.querySelector(".msg-actions");
+      if (!actions) return;
+      var tag = actions.querySelector(".model-tag");
+      if (!tag) {
+        tag = document.createElement("span");
+        tag.className = "model-tag";
+        actions.insertBefore(tag, actions.firstChild);
+      }
+      tag.textContent = getModelLabel(modelId);
+    }
 
     function scheduleRender(withCursor) {
       if (renderPending) return;
@@ -457,75 +472,92 @@
       });
     }
 
-    fetch(CONFIG.workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: resolvedModel,
-        stream: true,
-        messages: payloadMessages,
-        password: localStorage.getItem(AUTH_KEY) || "",
-      }),
-      signal: controller.signal,
-    })
-      .then(function (res) {
-        if (res.status === 401) {
-          throw new Error("__unauthorized__");
-        }
-        if (!res.ok) {
-          return res.text().then(function (body) {
-            throw new Error("HTTP " + res.status + " — " + body.slice(0, 300));
-          });
-        }
-        var reader = res.body.getReader();
-        var decoder = new TextDecoder();
-        var buffer = "";
-
-        function pump() {
-          return reader.read().then(function (result) {
-            if (result.done) return;
-            buffer += decoder.decode(result.value, { stream: true });
-            var events = buffer.split("\n\n");
-            buffer = events.pop();
-
-            events.forEach(function (evt) {
-              var line = evt.trim();
-              if (!line.startsWith("data:")) return;
-              var data = line.slice(5).trim();
-              if (data === "[DONE]") return;
-              try {
-                var json = JSON.parse(data);
-                var delta = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content : "";
-                if (delta) {
-                  if (firstChunk) { contentEl.innerHTML = ""; firstChunk = false; }
-                  assistantText += delta;
-                  scheduleRender(true);
-                }
-              } catch (err) { /* ignore malformed chunk */ }
+    function sendChatRequest(modelToUse, isRetry) {
+      fetch(CONFIG.workerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: modelToUse,
+          stream: true,
+          messages: payloadMessages,
+          password: localStorage.getItem(AUTH_KEY) || "",
+        }),
+        signal: controller.signal,
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            throw new Error("__unauthorized__");
+          }
+          if (!res.ok) {
+            return res.text().then(function (body) {
+              var modelUnavailable = /model_not_found|does not exist/i.test(body);
+              if (modelUnavailable && !isRetry && modelToUse !== FALLBACK_MODEL) {
+                throw new Error("__retry_fallback__");
+              }
+              throw new Error("HTTP " + res.status + " — " + body.slice(0, 300));
             });
+          }
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
 
-            return pump();
-          });
-        }
-        return pump();
-      })
-      .then(function () {
-        finished = true;
-        finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null, modelTag);
-      })
-      .catch(function (err) {
-        finished = true;
-        if (err.message === "__unauthorized__") {
-          msgEl.remove();
-          setStreamingUI(false);
-          state.abortController = null;
-          handleUnauthorized();
-        } else if (err.name === "AbortError") {
-          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted", modelTag);
-        } else {
-          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err), modelTag);
-        }
-      });
+          function pump() {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+
+              events.forEach(function (evt) {
+                var line = evt.trim();
+                if (!line.startsWith("data:")) return;
+                var data = line.slice(5).trim();
+                if (data === "[DONE]") return;
+                try {
+                  var json = JSON.parse(data);
+                  var delta = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content : "";
+                  if (delta) {
+                    if (firstChunk) { contentEl.innerHTML = ""; firstChunk = false; }
+                    assistantText += delta;
+                    scheduleRender(true);
+                  }
+                } catch (err) { /* ignore malformed chunk */ }
+              });
+
+              return pump();
+            });
+          }
+          return pump();
+        })
+        .then(function () {
+          finished = true;
+          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null, (isAutoMode || didFallback) ? currentModel : null);
+        })
+        .catch(function (err) {
+          if (err.message === "__retry_fallback__") {
+            didFallback = true;
+            firstChunk = true;
+            assistantText = "";
+            contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+            updateModelTag(FALLBACK_MODEL);
+            sendChatRequest(FALLBACK_MODEL, true);
+            return;
+          }
+          finished = true;
+          if (err.message === "__unauthorized__") {
+            msgEl.remove();
+            setStreamingUI(false);
+            state.abortController = null;
+            handleUnauthorized();
+          } else if (err.name === "AbortError") {
+            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted", (isAutoMode || didFallback) ? currentModel : null);
+          } else {
+            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err), (isAutoMode || didFallback) ? currentModel : null);
+          }
+        });
+    }
+
+    sendChatRequest(resolvedModel, false);
   }
 
   function finalizeAssistantMessage(msgEl, contentEl, convo, text, errorMessage, modelUsed) {
