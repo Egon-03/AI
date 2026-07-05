@@ -433,6 +433,26 @@ body.authed .login-screen { display: none; }
   color: var(--text-muted);
 }
 
+.model-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 26px 6px 12px;
+  border-radius: 999px;
+  background: var(--glass-bg-strong)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='12' height='12'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%2399a1b1' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.model-select:hover { color: var(--text); }
+.model-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.model-select option { background: var(--bg-elevated); color: var(--text); }
+
 .model-badge {
   display: flex;
   align-items: center;
@@ -646,6 +666,14 @@ body.authed .login-screen { display: none; }
 .msg.assistant.actions-visible .msg-actions { opacity: 1; }
 @media (hover: none) {
   .msg-actions { opacity: 1; }
+}
+.model-tag {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
 }
 .msg-actions button {
   display: flex;

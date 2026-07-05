@@ -5,6 +5,8 @@
   var STORAGE_KEY = "lumen.conversations.v1";
   var THEME_KEY = "lumen.theme";
   var AUTH_KEY = "grassiai.auth";
+  var MODEL_KEY = "grassiai.model";
+  var AUTO_VALUE = "auto";
 
   var els = {
     app: document.getElementById("app"),
@@ -19,6 +21,7 @@
     logoutBtn: document.getElementById("logoutBtn"),
     headerTitle: document.getElementById("headerTitle"),
     modelBadgeText: document.getElementById("modelBadgeText"),
+    modelSelect: document.getElementById("modelSelect"),
     chatScroll: document.getElementById("chatScroll"),
     welcome: document.getElementById("welcome"),
     messages: document.getElementById("messages"),
@@ -48,6 +51,7 @@
     bindLoginEvents();
     renderHistory();
     applyBranding();
+    initModelSelect();
     if (localStorage.getItem(AUTH_KEY)) {
       document.body.classList.add("authed");
     }
@@ -123,6 +127,56 @@
     var composerHint = document.getElementById("composerHint");
     if (composerHint) composerHint.textContent = name + " può commettere errori. Verifica le informazioni importanti.";
     els.input.placeholder = "Scrivi un messaggio a " + name + "...";
+  }
+
+  // ---------------------------------------------------------------
+  // Model selection
+  // ---------------------------------------------------------------
+  function getSelectedModel() {
+    return localStorage.getItem(MODEL_KEY) || CONFIG.model;
+  }
+
+  function initModelSelect() {
+    var models = CONFIG.models && CONFIG.models.length ? CONFIG.models : [{ id: CONFIG.model, label: CONFIG.model }];
+    var current = getSelectedModel();
+    els.modelSelect.innerHTML = "";
+    models.forEach(function (m) {
+      var opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.label;
+      if (m.id === current) opt.selected = true;
+      els.modelSelect.appendChild(opt);
+    });
+    els.modelSelect.addEventListener("change", function () {
+      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
+    });
+  }
+
+  function getModelLabel(id) {
+    var found = (CONFIG.models || []).filter(function (m) { return m.id === id; })[0];
+    return found ? found.label : id;
+  }
+
+  // Sceglie un modello reale al posto di "auto", in base al contenuto
+  // dell'ultimo messaggio dell'utente. Euristica semplice e trasparente:
+  // niente chiamate extra, nessun costo aggiuntivo, scelta mostrata
+  // all'utente sotto la risposta.
+  function pickAutoModel(text) {
+    var t = (text || "").toLowerCase();
+
+    var livePattern = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
+    var mathPattern = /\b(calcola|quanto fa|risolvi|equazione|integrale|derivata|percentuale)\b|\d[\d\s+\-*/^%=]{3,}\d/;
+    var visionPattern = /\b(immagine|foto|screenshot|nell'immagine)\b/;
+    var codePattern = /```|\b(codice|funzione|bug|debug|script|python|javascript|typescript|java|c\+\+|c#|sql|html|css|refactor|libreria|framework|regex|json|api)\b/;
+    var reasoningPattern = /\b(spiega (in dettaglio|passo passo|passo per passo)|analizza|confronta|pro e contro|dimostra|argomenta|approfondisci|strategia|pianifica|valuta)\b/;
+
+    if (livePattern.test(t)) return "groq/compound";
+    if (codePattern.test(t)) return "moonshotai/kimi-k2-instruct-0905";
+    if (mathPattern.test(t)) return "groq/compound";
+    if (visionPattern.test(t)) return "qwen/qwen3.6-27b";
+    if (reasoningPattern.test(t) || t.length > 400) return "openai/gpt-oss-120b";
+    if (t.length > 0 && t.length < 60) return "openai/gpt-oss-20b";
+    return "openai/gpt-oss-120b";
   }
 
   // ---------------------------------------------------------------
@@ -253,7 +307,7 @@
     state.currentId = id;
     hideWelcome();
     els.messages.innerHTML = "";
-    convo.messages.forEach(function (m) { appendMessageEl(m.role, m.content, false); });
+    convo.messages.forEach(function (m) { appendMessageEl(m.role, m.content, false, m.modelUsed); });
     els.headerTitle.textContent = convo.title;
     renderHistory();
     closeSidebarMobile();
@@ -364,8 +418,14 @@
     var convo = getCurrentConversation();
     if (!convo) return;
 
+    var selectedModel = getSelectedModel();
+    var isAutoMode = selectedModel === AUTO_VALUE;
+    var lastUserMsg = convo.messages[convo.messages.length - 1];
+    var resolvedModel = isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel;
+    var modelTag = isAutoMode ? resolvedModel : null;
+
     setStreamingUI(true);
-    var msgEl = appendMessageEl("assistant", "", true);
+    var msgEl = appendMessageEl("assistant", "", true, modelTag);
     var contentEl = msgEl.querySelector(".msg-content");
     contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
 
@@ -401,7 +461,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: CONFIG.model,
+        model: resolvedModel,
         stream: true,
         messages: payloadMessages,
         password: localStorage.getItem(AUTH_KEY) || "",
@@ -451,7 +511,7 @@
       })
       .then(function () {
         finished = true;
-        finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null);
+        finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null, modelTag);
       })
       .catch(function (err) {
         finished = true;
@@ -461,14 +521,14 @@
           state.abortController = null;
           handleUnauthorized();
         } else if (err.name === "AbortError") {
-          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted");
+          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted", modelTag);
         } else {
-          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err));
+          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err), modelTag);
         }
       });
   }
 
-  function finalizeAssistantMessage(msgEl, contentEl, convo, text, errorMessage) {
+  function finalizeAssistantMessage(msgEl, contentEl, convo, text, errorMessage, modelUsed) {
     setStreamingUI(false);
     state.abortController = null;
 
@@ -488,7 +548,7 @@
     contentEl.innerHTML = renderMarkdown(finalText);
     msgEl.dataset.raw = finalText;
 
-    convo.messages.push({ role: "assistant", content: finalText });
+    convo.messages.push({ role: "assistant", content: finalText, modelUsed: modelUsed || null });
     convo.updatedAt = Date.now();
     saveConversations();
     renderHistory();
@@ -512,7 +572,7 @@
   var assistantAvatarSvg =
     '<svg viewBox="0 0 32 32" width="16" height="16"><text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#fff">G</text></svg>';
 
-  function appendMessageEl(role, text, isStreamingPlaceholder) {
+  function appendMessageEl(role, text, isStreamingPlaceholder, modelUsed) {
     var wrap = document.createElement("div");
     wrap.className = "msg " + role;
 
@@ -532,9 +592,9 @@
 
     if (role === "assistant" && !isStreamingPlaceholder) {
       wrap.dataset.raw = text;
-      body.appendChild(buildMsgActions());
+      body.appendChild(buildMsgActions(modelUsed));
     } else if (role === "assistant") {
-      body.appendChild(buildMsgActions());
+      body.appendChild(buildMsgActions(modelUsed));
     }
 
     wrap.appendChild(avatar);
@@ -543,10 +603,12 @@
     return wrap;
   }
 
-  function buildMsgActions() {
+  function buildMsgActions(modelUsed) {
     var actions = document.createElement("div");
     actions.className = "msg-actions";
+    var tagHtml = modelUsed ? '<span class="model-tag">' + escapeHtml(getModelLabel(modelUsed)) + "</span>" : "";
     actions.innerHTML =
+      tagHtml +
       '<button type="button" class="copy-msg-btn">' +
       '<svg viewBox="0 0 24 24" width="13" height="13"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2"/></svg>' +
       "Copia</button>";
