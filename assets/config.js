@@ -9,7 +9,9 @@ window.APP_CONFIG = {
   workerUrl: "https://grassi-ai-proxy.egon-grassi2003.workers.dev/",
 
   // Modello Groq da usare. Vedi https://console.groq.com/docs/models
-  model: "llama-3.3-70b-versatile",
+  // (llama-3.3-70b-versatile è stato dichiarato deprecato da Groq il 17/06/2026,
+  // dismissione prevista ad agosto 2026 — gpt-oss-120b è il sostituto consigliato).
+  model: "openai/gpt-oss-120b",
 
   // Messaggio di sistema che definisce la personalit&agrave; dell'assistente.
   systemPrompt:
