@@ -155,33 +155,30 @@
   }
 
   // Ricostruisce le <option> del menu modelli: i modelli Groq fissi da
-  // config.js, seguiti (se disponibili) dal gruppo dei modelli gratuiti di
-  // OpenRouter scaricati in tempo reale. Va tenuta separata da
-  // initModelSelect perché viene richiamata di nuovo quando arriva la
-  // lista di OpenRouter, senza voler registrare due volte il listener.
+  // config.js, seguiti (se disponibili) dai modelli gratuiti scaricati in
+  // tempo reale da OpenRouter — nello stesso elenco piatto, senza un
+  // gruppo/etichetta separata, così il nome del provider non compare nella UI.
+  // Va tenuta separata da initModelSelect perché viene richiamata di nuovo
+  // quando arriva la lista di OpenRouter, senza voler registrare due volte
+  // il listener.
   function renderModelOptions() {
     var models = CONFIG.models && CONFIG.models.length ? CONFIG.models : [{ id: CONFIG.model, label: CONFIG.model }];
     var current = getSelectedModel();
     els.modelSelect.innerHTML = "";
-    models.forEach(function (m) {
+    models.concat(state.openrouterModels).forEach(function (m) {
       var opt = document.createElement("option");
       opt.value = m.id;
       opt.textContent = m.label;
       if (m.id === current) opt.selected = true;
       els.modelSelect.appendChild(opt);
     });
-    if (state.openrouterModels.length) {
-      var group = document.createElement("optgroup");
-      group.label = "OpenRouter (gratis)";
-      state.openrouterModels.forEach(function (m) {
-        var opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.label;
-        if (m.id === current) opt.selected = true;
-        group.appendChild(opt);
-      });
-      els.modelSelect.appendChild(group);
-    }
+  }
+
+  // Toglie il suffisso "(free)" che OpenRouter include nel nome di molti
+  // modelli gratuiti — qui è ridondante, dato che questi sono già gli unici
+  // modelli gratuiti che chiediamo.
+  function stripFreeSuffix(label) {
+    return (label || "").replace(/\s*\(free\)\s*$/i, "").trim();
   }
 
   // Scarica dal Worker l'elenco dei modelli attualmente gratuiti su
@@ -198,7 +195,9 @@
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
         if (data && Array.isArray(data.models) && data.models.length) {
-          state.openrouterModels = data.models;
+          state.openrouterModels = data.models.map(function (m) {
+            return { id: m.id, label: stripFreeSuffix(m.label) };
+          });
           renderModelOptions();
         }
       })

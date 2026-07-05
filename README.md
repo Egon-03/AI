@@ -58,7 +58,7 @@ La password non finisce mai nel codice pubblico: viene verificata lato server da
 
 ### Modelli gratuiti di OpenRouter (opzionale)
 
-Con una API key di [OpenRouter](https://openrouter.ai/), il menu dei modelli mostra anche un gruppo "OpenRouter (gratis)" con tutti i modelli attualmente offerti gratuitamente da OpenRouter (Deepseek, Qwen, ecc.). L'elenco viene scaricato in tempo reale a ogni login, quindi resta sempre aggiornato — non serve modificare il codice quando OpenRouter cambia quali modelli sono gratuiti.
+Con una API key di [OpenRouter](https://openrouter.ai/), il menu dei modelli include anche tutti i modelli attualmente offerti gratuitamente da OpenRouter (Deepseek, Qwen, ecc.), senza indicare il provider. L'elenco viene scaricato in tempo reale a ogni login, quindi resta sempre aggiornato — non serve modificare il codice quando OpenRouter cambia quali modelli sono gratuiti.
 
 ```bash
 wrangler secret put OPENROUTER_API_KEY
