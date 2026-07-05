@@ -143,7 +143,8 @@ export default {
             messages.splice(messages.length - 1, 0, {
               role: "system",
               content:
-                "Risultati di ricerca web aggiornati (fonte: Tavily). Usali se pertinenti per rispondere in modo accurato e aggiornato, citando le fonti quando utile:\n\n" +
+                "Risultati di ricerca web aggiornati (fonte: Tavily). Usali se pertinenti per rispondere in modo accurato e aggiornato, citando le fonti quando utile. " +
+                "Prima di rispondere, verifica che le date e i fatti che citi siano coerenti tra loro (es. non affermare che un evento è in corso in un certo intervallo di date e poi negare che accada in un giorno incluso in quell'intervallo):\n\n" +
                 formatSearchResults(results),
             });
           }
@@ -158,7 +159,12 @@ export default {
       model: modelId,
       messages: messages,
       stream: true,
-      temperature: 0.7,
+      // Search-grounded answers (dates, current events, scores) need the
+      // model to stay close to the retrieved facts rather than sampling
+      // creatively — high temperature was seen to produce self-contradictory
+      // answers (e.g. stating a race runs through today, then denying it
+      // happens today) even when the retrieved facts were correct.
+      temperature: body.webSearch ? 0.2 : 0.7,
       // No max_tokens cap: let Groq use each model's own default ceiling.
       // A fixed low cap (this used to be 2048) silently truncates long
       // code/calculation answers mid-stream with no closing ``` or \],
