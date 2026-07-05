@@ -695,11 +695,16 @@
           }
           if (!res.ok) {
             return res.text().then(function (body) {
+              // Free OpenRouter models share a tight rate limit across all
+              // users of that model — a 429 there is transient and common,
+              // not a real failure, so it gets the same retry-with-fallback
+              // treatment as a deprecated/unavailable model.
               var modelUnavailable = /model_not_found|does not exist/i.test(body);
-              if (modelUnavailable && !isRetry && modelToUse !== FALLBACK_MODEL) {
+              var rateLimited = res.status === 429 || /rate.?limit/i.test(body);
+              if ((modelUnavailable || rateLimited) && !isRetry && modelToUse !== FALLBACK_MODEL) {
                 throw new Error("__retry_fallback__");
               }
-              throw new Error("HTTP " + res.status + " — " + body.slice(0, 300));
+              throw new Error(friendlyErrorMessage(res.status, body));
             });
           }
           var reader = res.body.getReader();
@@ -821,6 +826,26 @@
     saveConversations();
     renderHistory();
     scrollToBottom(false);
+  }
+
+  // Turns a raw HTTP-error response body into something readable: providers
+  // (Groq, OpenRouter) return JSON with an error.message field — show just
+  // that instead of the whole raw JSON blob, and call out rate limits
+  // specifically since those are the one case worth explaining to the user
+  // (retry shortly, or pick a different model) rather than just "an error".
+  function friendlyErrorMessage(status, rawBody) {
+    var parsed;
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch (e) {
+      return "HTTP " + status + " — " + rawBody.slice(0, 300);
+    }
+    var msg = parsed && parsed.error && (parsed.error.message || parsed.error);
+    if (!msg) return "HTTP " + status + " — " + rawBody.slice(0, 300);
+    if (status === 429 || /rate.?limit/i.test(msg)) {
+      return "Il modello gratuito scelto ha raggiunto il limite di richieste. Riprova tra qualche secondo o scegli un altro modello. (" + msg + ")";
+    }
+    return msg;
   }
 
   function showErrorBanner(message) {
