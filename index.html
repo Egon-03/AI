@@ -93,7 +93,12 @@
     </div>
 
     <div class="composer-wrap">
+      <div class="attachments-preview hidden" id="attachmentsPreview"></div>
       <form class="composer" id="composer">
+        <input type="file" id="imageInput" accept="image/*" multiple hidden />
+        <button type="button" class="attach-btn" id="attachBtn" aria-label="Allega immagine">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 8.5V17a5 5 0 0 1-10 0V6a3.5 3.5 0 0 1 7 0v9.5a2 2 0 0 1-4 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <textarea
           id="input"
           class="composer-input"

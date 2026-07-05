@@ -746,7 +746,7 @@ body.authed .login-screen { display: none; }
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  padding: 8px 8px 8px 18px;
+  padding: 8px;
   box-shadow: var(--shadow-md);
 }
 .composer:focus-within { border-color: var(--accent); }
@@ -763,6 +763,20 @@ body.authed .login-screen { display: none; }
   padding: 8px 0;
 }
 .composer-input::placeholder { color: var(--placeholder); opacity: 1; }
+
+.attach-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.attach-btn:hover { background: rgba(0,0,0,0.06); color: var(--text); }
+:root[data-theme="dark"] .attach-btn:hover { background: rgba(255,255,255,0.08); }
 
 .send-btn, .stop-btn {
   flex-shrink: 0;
@@ -783,6 +797,52 @@ body.authed .login-screen { display: none; }
 :root[data-theme="dark"] .stop-btn { background: var(--accent-soft); color: var(--text); }
 
 .hidden { display: none !important; }
+
+.attachments-preview {
+  max-width: 760px;
+  margin: 0 auto 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.attachment-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+}
+.attachment-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.attachment-thumb .remove-attachment {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.attachment-thumb .remove-attachment:hover { background: rgba(0,0,0,0.8); }
+
+.msg-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.msg-images img {
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: var(--radius-md);
+  display: block;
+  box-shadow: var(--shadow-sm);
+}
 
 .composer-hint {
   text-align: center;
