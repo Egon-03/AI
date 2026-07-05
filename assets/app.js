@@ -48,7 +48,6 @@
     streaming: false,
     abortController: null,
     pendingAttachments: [],
-    openrouterModels: [],
   };
 
   init();
@@ -63,7 +62,6 @@
     initModelSelect();
     if (localStorage.getItem(AUTH_KEY)) {
       document.body.classList.add("authed");
-      fetchOpenRouterModels();
     }
     // Runs after the "authed" class (if any) is applied, since the composer
     // is hidden (display:none) until then and scrollHeight would read as 0.
@@ -101,7 +99,6 @@
         els.loginPassword.value = "";
         document.body.classList.add("authed");
         autoResizeTextarea();
-        fetchOpenRouterModels();
       })
       .catch(function () {
         els.loginError.textContent = "Password errata, riprova.";
@@ -148,78 +145,23 @@
   }
 
   function initModelSelect() {
-    renderModelOptions();
-    els.modelSelect.addEventListener("change", function () {
-      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
-    });
-  }
-
-  // Ricostruisce le <option> del menu modelli: i modelli Groq fissi da
-  // config.js, seguiti (se disponibili) dai modelli gratuiti scaricati in
-  // tempo reale da OpenRouter — nello stesso elenco piatto, senza un
-  // gruppo/etichetta separata, così il nome del provider non compare nella UI.
-  // Va tenuta separata da initModelSelect perché viene richiamata di nuovo
-  // quando arriva la lista di OpenRouter, senza voler registrare due volte
-  // il listener.
-  function renderModelOptions() {
     var models = CONFIG.models && CONFIG.models.length ? CONFIG.models : [{ id: CONFIG.model, label: CONFIG.model }];
     var current = getSelectedModel();
     els.modelSelect.innerHTML = "";
-    models.concat(state.openrouterModels).forEach(function (m) {
+    models.forEach(function (m) {
       var opt = document.createElement("option");
       opt.value = m.id;
       opt.textContent = m.label;
       if (m.id === current) opt.selected = true;
       els.modelSelect.appendChild(opt);
     });
-  }
-
-  // Toglie il suffisso "(free)" che OpenRouter include nel nome di molti
-  // modelli gratuiti — qui è ridondante, dato che questi sono già gli unici
-  // modelli gratuiti che chiediamo.
-  function stripFreeSuffix(label) {
-    return (label || "").replace(/\s*\(free\)\s*$/i, "").trim();
-  }
-
-  // Confronta gli id ignorando il suffisso ":variante" (es. ":free") per
-  // capire se un modello OpenRouter è in realtà lo stesso modello già
-  // offerto da Groq (es. "openai/gpt-oss-120b" vs "openai/gpt-oss-120b:free").
-  function baseModelKey(id) {
-    return (id || "").split(":")[0].toLowerCase();
-  }
-
-  function isAlreadyOnGroq(openrouterModel) {
-    var key = baseModelKey(openrouterModel.id);
-    return (CONFIG.models || []).some(function (m) { return baseModelKey(m.id) === key; });
-  }
-
-  // Scarica dal Worker l'elenco dei modelli attualmente gratuiti su
-  // OpenRouter (prezzo 0 sia in input che in output). Richiesto in tempo
-  // reale invece di essere una lista fissa in config.js perché OpenRouter
-  // cambia spesso quali modelli sono gratuiti — lo stesso problema di
-  // deprecazione avuto più volte con i modelli Groq, qui evitato del tutto.
-  function fetchOpenRouterModels() {
-    fetch(CONFIG.workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listModels: "openrouter", password: localStorage.getItem(AUTH_KEY) || "" }),
-    })
-      .then(function (res) { return res.ok ? res.json() : null; })
-      .then(function (data) {
-        if (data && Array.isArray(data.models) && data.models.length) {
-          state.openrouterModels = data.models
-            .filter(function (m) { return !isAlreadyOnGroq(m); })
-            .map(function (m) { return { id: m.id, label: stripFreeSuffix(m.label) }; });
-          renderModelOptions();
-        }
-      })
-      .catch(function () {
-        // Best-effort: se OpenRouter non risponde, il menu resta con i soli modelli Groq.
-      });
+    els.modelSelect.addEventListener("change", function () {
+      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
+    });
   }
 
   function getModelLabel(id) {
-    var found = (CONFIG.models || []).concat(state.openrouterModels).filter(function (m) { return m.id === id; })[0];
+    var found = (CONFIG.models || []).filter(function (m) { return m.id === id; })[0];
     return found ? found.label : id;
   }
 
@@ -227,21 +169,6 @@
   // risposta richieda informazioni aggiornate/live, per instradare verso
   // groq/compound (che ha una ricerca web integrata).
   var LIVE_INFO_PATTERN = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
-
-  // Per le domande di programmazione, la modalità "Automatico" preferisce
-  // un modello gratuito di OpenRouter esplicitamente dedicato al coding
-  // (es. "Qwen3 Coder"), se ne è stato scaricato uno dal Worker; altrimenti
-  // ricade su Qwen di Groq come prima. Le altre categorie restano tutte su
-  // Groq: i modelli gratuiti di OpenRouter hanno limiti di frequenza molto
-  // più stretti (circa 20 richieste al minuto), quindi non conviene
-  // instradarci anche il traffico generico/di default, che romperebbe
-  // "Automatico" molto più spesso.
-  function pickCoderModel() {
-    var coder = state.openrouterModels.filter(function (m) {
-      return /coder/i.test(m.label) || /coder/i.test(m.id);
-    })[0];
-    return coder ? coder.id : "qwen/qwen3.6-27b";
-  }
 
   // Sceglie un modello reale al posto di "auto", in base al contenuto
   // dell'ultimo messaggio dell'utente. Euristica semplice e trasparente:
@@ -256,7 +183,7 @@
     var reasoningPattern = /\b(spiega (in dettaglio|passo passo|passo per passo)|analizza|confronta|pro e contro|dimostra|argomenta|approfondisci|strategia|pianifica|valuta)\b/;
 
     if (LIVE_INFO_PATTERN.test(t)) return "groq/compound";
-    if (codePattern.test(t)) return pickCoderModel();
+    if (codePattern.test(t)) return "qwen/qwen3.6-27b";
     if (mathPattern.test(t)) return "groq/compound";
     if (visionPattern.test(t)) return "qwen/qwen3.6-27b";
     if (reasoningPattern.test(t) || t.length > 400) return "openai/gpt-oss-120b";
@@ -666,10 +593,8 @@
     }
 
     // A fallback substitution otherwise only shows up as a tiny model-tag
-    // that's hidden until the message is hovered — easy to miss, which made
-    // it look like OpenRouter models "don't work" when really they were
-    // failing and quietly being answered by Groq instead. This note is
-    // always visible so a fallback is never silent.
+    // that's hidden until the message is hovered — easy to miss. This note
+    // is always visible so a fallback is never silent.
     function showFallbackNote() {
       if (msgEl.querySelector(".fallback-note")) return;
       var note = document.createElement("div");
@@ -698,12 +623,6 @@
     }
 
     function sendChatRequest(modelToUse, isRetry) {
-      // OpenRouter's free models are always named "vendor/model:variant"
-      // (e.g. "deepseek/deepseek-r1:free") — the colon reliably tells them
-      // apart from Groq's plain "vendor/model" ids, no extra bookkeeping
-      // needed. This also means a retry that falls back to FALLBACK_MODEL
-      // (a Groq id) correctly switches provider back to Groq.
-      var provider = /:/.test(modelToUse) ? "openrouter" : "groq";
       fetch(CONFIG.workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -711,7 +630,6 @@
           model: modelToUse,
           stream: true,
           messages: payloadMessages,
-          provider: provider,
           password: localStorage.getItem(AUTH_KEY) || "",
         }),
         signal: controller.signal,
@@ -722,15 +640,12 @@
           }
           if (!res.ok) {
             return res.text().then(function (body) {
-              // Groq failures only retry for a known deprecated/unavailable
-              // model, to avoid silently masking a real bug there — Groq has
-              // otherwise been solid. Free OpenRouter models, though, keep
-              // surfacing different transient quirks (rate limits, tool-call
-              // validation errors, etc.), so any failure there is worth one
-              // retry against the reliable Groq fallback rather than trying
-              // to special-case every new error string we come across.
+              // Retry with the safe fallback model for a known deprecated/
+              // unavailable model, or a transient rate limit — anything else
+              // surfaces as a real error instead of being silently retried.
               var modelUnavailable = /model_not_found|does not exist/i.test(body);
-              var canRetry = provider === "openrouter" || modelUnavailable;
+              var rateLimited = res.status === 429 || /rate.?limit/i.test(body);
+              var canRetry = modelUnavailable || rateLimited;
               if (canRetry && !isRetry && modelToUse !== FALLBACK_MODEL) {
                 throw new Error("__retry_fallback__");
               }
@@ -859,11 +774,11 @@
     scrollToBottom(false);
   }
 
-  // Turns a raw HTTP-error response body into something readable: providers
-  // (Groq, OpenRouter) return JSON with an error.message field — show just
-  // that instead of the whole raw JSON blob, and call out rate limits
-  // specifically since those are the one case worth explaining to the user
-  // (retry shortly, or pick a different model) rather than just "an error".
+  // Turns a raw HTTP-error response body into something readable: Groq
+  // returns JSON with an error.message field — show just that instead of
+  // the whole raw JSON blob, and call out rate limits specifically since
+  // those are the one case worth explaining to the user (retry shortly, or
+  // pick a different model) rather than just "an error".
   function friendlyErrorMessage(status, rawBody) {
     var parsed;
     try {

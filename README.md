@@ -56,17 +56,6 @@ Qualunque password tra quelle impostate (fino a 3) sblocca l'accesso al sito.
 
 La password non finisce mai nel codice pubblico: viene verificata lato server dal Worker a ogni richiesta. Per cambiarla in futuro basta rilanciare lo stesso comando; per rimuovere del tutto la protezione, esegui `wrangler secret delete SITE_PASSWORD` (o `SITE_PASSWORD_2` / `SITE_PASSWORD_3`).
 
-### Modelli gratuiti di OpenRouter (opzionale)
-
-Con una API key di [OpenRouter](https://openrouter.ai/), il menu dei modelli include anche tutti i modelli attualmente offerti gratuitamente da OpenRouter (Deepseek, Qwen, ecc.), senza indicare il provider. L'elenco viene scaricato in tempo reale a ogni login, quindi resta sempre aggiornato — non serve modificare il codice quando OpenRouter cambia quali modelli sono gratuiti.
-
-```bash
-wrangler secret put OPENROUTER_API_KEY
-# incolla qui la API key generata su openrouter.ai
-```
-
-Se questo secret non è impostato, il gruppo "OpenRouter (gratis)" resta semplicemente vuoto: il resto del sito (Groq) funziona come prima.
-
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 
 ```
