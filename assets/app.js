@@ -8,6 +8,9 @@
   var MODEL_KEY = "grassiai.model";
   var AUTO_VALUE = "auto";
   var FALLBACK_MODEL = "openai/gpt-oss-120b";
+  var VISION_MODEL = "qwen/qwen3.6-27b";
+  var MAX_ATTACHMENTS = 4;
+  var MAX_IMAGE_DIMENSION = 1600;
 
   var els = {
     app: document.getElementById("app"),
@@ -30,6 +33,9 @@
     input: document.getElementById("input"),
     sendBtn: document.getElementById("sendBtn"),
     stopBtn: document.getElementById("stopBtn"),
+    attachBtn: document.getElementById("attachBtn"),
+    imageInput: document.getElementById("imageInput"),
+    attachmentsPreview: document.getElementById("attachmentsPreview"),
     loginForm: document.getElementById("loginForm"),
     loginPassword: document.getElementById("loginPassword"),
     loginBtn: document.getElementById("loginBtn"),
@@ -41,6 +47,7 @@
     currentId: null,
     streaming: false,
     abortController: null,
+    pendingAttachments: [],
   };
 
   init();
@@ -250,6 +257,25 @@
       if (state.abortController) state.abortController.abort();
     });
 
+    els.attachBtn.addEventListener("click", function () { els.imageInput.click(); });
+    els.imageInput.addEventListener("change", function () {
+      addAttachments(els.imageInput.files);
+      els.imageInput.value = "";
+    });
+    els.input.addEventListener("paste", function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      var imageFiles = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === "file" && items[i].type.indexOf("image/") === 0) {
+          imageFiles.push(items[i].getAsFile());
+        }
+      }
+      if (imageFiles.length) {
+        e.preventDefault();
+        addAttachments(imageFiles);
+      }
+    });
+
     els.messages.addEventListener("click", function (e) {
       var copyCodeBtn = e.target.closest(".copy-code-btn");
       if (copyCodeBtn) {
@@ -308,7 +334,7 @@
     state.currentId = id;
     hideWelcome();
     els.messages.innerHTML = "";
-    convo.messages.forEach(function (m) { appendMessageEl(m.role, m.content, false, m.modelUsed); });
+    convo.messages.forEach(function (m) { appendMessageEl(m.role, m.content, false, m.modelUsed, m.images); });
     els.headerTitle.textContent = convo.title;
     renderHistory();
     closeSidebarMobile();
@@ -381,24 +407,29 @@
     e.preventDefault();
     if (state.streaming) return;
     var text = els.input.value.trim();
-    if (!text) return;
+    var images = state.pendingAttachments.slice();
+    if (!text && !images.length) return;
 
     if (!state.currentId) {
-      var convo = { id: cryptoRandomId(), title: makeTitle(text), messages: [], updatedAt: Date.now() };
+      var title = text ? makeTitle(text) : "Immagine";
+      var convo = { id: cryptoRandomId(), title: title, messages: [], updatedAt: Date.now() };
       state.conversations.unshift(convo);
       state.currentId = convo.id;
     }
     hideWelcome();
 
     var convo2 = getCurrentConversation();
-    convo2.messages.push({ role: "user", content: text });
+    var userMsg = { role: "user", content: text };
+    if (images.length) userMsg.images = images;
+    convo2.messages.push(userMsg);
     convo2.updatedAt = Date.now();
     els.headerTitle.textContent = convo2.title;
     saveConversations();
     renderHistory();
 
-    appendMessageEl("user", text, false);
+    appendMessageEl("user", text, false, null, images);
     els.input.value = "";
+    clearAttachments();
     autoResizeTextarea();
     scrollToBottom(true);
 
@@ -407,6 +438,80 @@
 
   function cryptoRandomId() {
     return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ---------------------------------------------------------------
+  // Image attachments
+  // ---------------------------------------------------------------
+  function fileToCompressedDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error("read error")); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error("decode error")); };
+        img.onload = function () {
+          var scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height));
+          var w = Math.max(1, Math.round(img.width * scale));
+          var h = Math.max(1, Math.round(img.height * scale));
+          var canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function addAttachments(files) {
+    var list = Array.prototype.slice.call(files || []).filter(function (f) {
+      return f.type && f.type.indexOf("image/") === 0;
+    });
+    if (!list.length) return;
+    if (state.pendingAttachments.length >= MAX_ATTACHMENTS) return;
+    list.slice(0, MAX_ATTACHMENTS - state.pendingAttachments.length).forEach(function (file) {
+      fileToCompressedDataUrl(file)
+        .then(function (dataUrl) {
+          state.pendingAttachments.push(dataUrl);
+          renderAttachmentsPreview();
+        })
+        .catch(function () { /* ignore unreadable file */ });
+    });
+  }
+
+  function removeAttachment(index) {
+    state.pendingAttachments.splice(index, 1);
+    renderAttachmentsPreview();
+  }
+
+  function clearAttachments() {
+    state.pendingAttachments = [];
+    renderAttachmentsPreview();
+  }
+
+  function renderAttachmentsPreview() {
+    var el = els.attachmentsPreview;
+    el.innerHTML = "";
+    if (!state.pendingAttachments.length) {
+      el.classList.add("hidden");
+      return;
+    }
+    el.classList.remove("hidden");
+    state.pendingAttachments.forEach(function (dataUrl, index) {
+      var thumb = document.createElement("div");
+      thumb.className = "attachment-thumb";
+      thumb.innerHTML =
+        '<img src="' + dataUrl + '" alt="Anteprima immagine allegata" />' +
+        '<button type="button" class="remove-attachment" aria-label="Rimuovi immagine">' +
+        '<svg viewBox="0 0 24 24" width="10" height="10"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>' +
+        "</button>";
+      thumb.querySelector(".remove-attachment").addEventListener("click", function () { removeAttachment(index); });
+      el.appendChild(thumb);
+    });
   }
 
   function setStreamingUI(isStreaming) {
@@ -422,12 +527,14 @@
     var selectedModel = getSelectedModel();
     var isAutoMode = selectedModel === AUTO_VALUE;
     var lastUserMsg = convo.messages[convo.messages.length - 1];
-    var resolvedModel = isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel;
+    var hasImages = !!(lastUserMsg && lastUserMsg.images && lastUserMsg.images.length);
+    var resolvedModel = hasImages ? VISION_MODEL : (isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel);
     var currentModel = resolvedModel;
     var didFallback = false;
+    var showTag = isAutoMode || hasImages;
 
     setStreamingUI(true);
-    var msgEl = appendMessageEl("assistant", "", true, isAutoMode ? resolvedModel : null);
+    var msgEl = appendMessageEl("assistant", "", true, showTag ? resolvedModel : null);
     var contentEl = msgEl.querySelector(".msg-content");
     contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
 
@@ -435,7 +542,17 @@
     state.abortController = controller;
 
     var payloadMessages = [{ role: "system", content: CONFIG.systemPrompt || "" }].concat(
-      convo.messages.map(function (m) { return { role: m.role, content: m.content }; })
+      convo.messages.map(function (m) {
+        if (m.images && m.images.length) {
+          var parts = [];
+          if (m.content) parts.push({ type: "text", text: m.content });
+          m.images.forEach(function (dataUrl) {
+            parts.push({ type: "image_url", image_url: { url: dataUrl } });
+          });
+          return { role: m.role, content: parts };
+        }
+        return { role: m.role, content: m.content };
+      })
     );
 
     var assistantText = "";
@@ -531,7 +648,7 @@
         })
         .then(function () {
           finished = true;
-          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null, (isAutoMode || didFallback) ? currentModel : null);
+          finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, null, (showTag || didFallback) ? currentModel : null);
         })
         .catch(function (err) {
           if (err.message === "__retry_fallback__") {
@@ -550,9 +667,9 @@
             state.abortController = null;
             handleUnauthorized();
           } else if (err.name === "AbortError") {
-            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted", (isAutoMode || didFallback) ? currentModel : null);
+            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, assistantText ? null : "interrupted", (showTag || didFallback) ? currentModel : null);
           } else {
-            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err), (isAutoMode || didFallback) ? currentModel : null);
+            finalizeAssistantMessage(msgEl, contentEl, convo, assistantText, err.message || String(err), (showTag || didFallback) ? currentModel : null);
           }
         });
     }
@@ -604,7 +721,7 @@
   var assistantAvatarSvg =
     '<svg viewBox="0 0 32 32" width="16" height="16"><text x="16" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="16" fill="#fff">G</text></svg>';
 
-  function appendMessageEl(role, text, isStreamingPlaceholder, modelUsed) {
+  function appendMessageEl(role, text, isStreamingPlaceholder, modelUsed, images) {
     var wrap = document.createElement("div");
     wrap.className = "msg " + role;
 
@@ -614,6 +731,18 @@
 
     var body = document.createElement("div");
     body.className = "msg-body";
+
+    if (images && images.length) {
+      var imagesRow = document.createElement("div");
+      imagesRow.className = "msg-images";
+      images.forEach(function (dataUrl) {
+        var img = document.createElement("img");
+        img.src = dataUrl;
+        img.alt = "Immagine allegata";
+        imagesRow.appendChild(img);
+      });
+      body.appendChild(imagesRow);
+    }
 
     var content = document.createElement("div");
     content.className = "msg-content";
