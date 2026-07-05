@@ -632,6 +632,7 @@
           var reader = res.body.getReader();
           var decoder = new TextDecoder();
           var buffer = "";
+          var streamError = null;
 
           function pump() {
             return reader.read().then(function (result) {
@@ -641,12 +642,29 @@
               buffer = events.pop();
 
               events.forEach(function (evt) {
-                var line = evt.trim();
-                if (!line.startsWith("data:")) return;
-                var data = line.slice(5).trim();
+                // An SSE event can carry several fields on separate lines
+                // (e.g. "event: error\ndata: {...}"). Groq sometimes sends
+                // a mid-stream error this way instead of an HTTP error —
+                // if we only ever look for lines starting with "data:" as
+                // a whole block, that block is silently dropped and the
+                // response ends up looking like an empty-but-successful
+                // reply (no error, no text).
+                var eventType = null;
+                var dataLines = [];
+                evt.split("\n").forEach(function (rawLine) {
+                  var l = rawLine.trim();
+                  if (l.startsWith("event:")) eventType = l.slice(6).trim();
+                  else if (l.startsWith("data:")) dataLines.push(l.slice(5).trim());
+                });
+                if (!dataLines.length) return;
+                var data = dataLines.join("\n");
                 if (data === "[DONE]") return;
                 try {
                   var json = JSON.parse(data);
+                  if (eventType === "error" || json.error) {
+                    streamError = (json.error && (json.error.message || json.error)) || "Errore durante la generazione della risposta.";
+                    return;
+                  }
                   var delta = json.choices && json.choices[0] && json.choices[0].delta ? json.choices[0].delta.content : "";
                   if (delta) {
                     if (firstChunk) { contentEl.innerHTML = ""; firstChunk = false; }
@@ -659,7 +677,18 @@
               return pump();
             });
           }
-          return pump();
+          return pump().then(function () {
+            // Some models (e.g. groq/compound running a web search) can
+            // finish the stream with no error and no content at all. Retry
+            // once with the safe fallback model instead of silently
+            // showing nothing, same as the model_not_found handling below.
+            if (!assistantText) {
+              if (!isRetry && modelToUse !== FALLBACK_MODEL) {
+                throw new Error("__retry_fallback__");
+              }
+              throw new Error(streamError || "Il modello non ha restituito alcuna risposta. Riprova o cambia modello.");
+            }
+          });
         })
         .then(function () {
           finished = true;
