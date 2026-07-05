@@ -695,13 +695,16 @@
           }
           if (!res.ok) {
             return res.text().then(function (body) {
-              // Free OpenRouter models share a tight rate limit across all
-              // users of that model — a 429 there is transient and common,
-              // not a real failure, so it gets the same retry-with-fallback
-              // treatment as a deprecated/unavailable model.
+              // Groq failures only retry for a known deprecated/unavailable
+              // model, to avoid silently masking a real bug there — Groq has
+              // otherwise been solid. Free OpenRouter models, though, keep
+              // surfacing different transient quirks (rate limits, tool-call
+              // validation errors, etc.), so any failure there is worth one
+              // retry against the reliable Groq fallback rather than trying
+              // to special-case every new error string we come across.
               var modelUnavailable = /model_not_found|does not exist/i.test(body);
-              var rateLimited = res.status === 429 || /rate.?limit/i.test(body);
-              if ((modelUnavailable || rateLimited) && !isRetry && modelToUse !== FALLBACK_MODEL) {
+              var canRetry = provider === "openrouter" || modelUnavailable;
+              if (canRetry && !isRetry && modelToUse !== FALLBACK_MODEL) {
                 throw new Error("__retry_fallback__");
               }
               throw new Error(friendlyErrorMessage(res.status, body));
