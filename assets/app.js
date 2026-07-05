@@ -527,11 +527,13 @@
     var selectedModel = getSelectedModel();
     var isAutoMode = selectedModel === AUTO_VALUE;
     var lastUserMsg = convo.messages[convo.messages.length - 1];
-    // Once any message in the conversation carries an image, every later
-    // request must keep using the vision model: Groq rejects a request
-    // where a non-vision model sees array-style content anywhere in the
-    // history, not just in the latest message.
-    var hasImages = convo.messages.some(function (m) { return m.images && m.images.length; });
+    // Groq only accepts image content in the newest message of a request —
+    // resending an older message's image as array content (even to the
+    // vision model) is rejected with "content must be a string". So only
+    // the current turn may carry real image data (see payloadMessages
+    // below); whether to route to the vision model depends only on
+    // whether *this* message has an image.
+    var hasImages = !!(lastUserMsg && lastUserMsg.images && lastUserMsg.images.length);
     var resolvedModel = hasImages ? VISION_MODEL : (isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel);
     var currentModel = resolvedModel;
     var didFallback = false;
@@ -547,13 +549,20 @@
 
     var payloadMessages = [{ role: "system", content: CONFIG.systemPrompt || "" }].concat(
       convo.messages.map(function (m) {
-        if (m.images && m.images.length) {
+        // Only the current/last message may include real image data —
+        // Groq rejects array content on any earlier message. Older image
+        // messages are sent as plain text so the model still has context
+        // on what was discussed, just not the raw pixels anymore.
+        if (m.images && m.images.length && m === lastUserMsg) {
           var parts = [];
           if (m.content) parts.push({ type: "text", text: m.content });
           m.images.forEach(function (dataUrl) {
             parts.push({ type: "image_url", image_url: { url: dataUrl } });
           });
           return { role: m.role, content: parts };
+        }
+        if (m.images && m.images.length) {
+          return { role: m.role, content: m.content || "[Immagine allegata in un messaggio precedente]" };
         }
         return { role: m.role, content: m.content };
       })
