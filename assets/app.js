@@ -594,6 +594,7 @@
         if (finished) return;
         contentEl.innerHTML = renderMarkdown(assistantText);
         renderMathIn(contentEl);
+        highlightCodeIn(contentEl);
         if (withCursor) {
           var last = contentEl.lastElementChild;
           if (last) last.classList.add("cursor");
@@ -710,6 +711,7 @@
     }
     contentEl.innerHTML = renderMarkdown(finalText);
     renderMathIn(contentEl);
+    highlightCodeIn(contentEl);
     msgEl.dataset.raw = finalText;
 
     convo.messages.push({ role: "assistant", content: finalText, modelUsed: modelUsed || null });
@@ -763,7 +765,7 @@
     content.className = "msg-content";
     if (!isStreamingPlaceholder) {
       content.innerHTML = role === "assistant" ? renderMarkdown(text) : escapeHtml(text).replace(/\n/g, "<br>");
-      if (role === "assistant") renderMathIn(content);
+      if (role === "assistant") { renderMathIn(content); highlightCodeIn(content); }
     }
     body.appendChild(content);
 
@@ -825,9 +827,22 @@
     return t;
   }
 
+  var PRISM_LANG_ALIASES = {
+    js: "javascript", ts: "typescript", py: "python", rb: "ruby",
+    sh: "bash", shell: "bash", yml: "yaml", md: "markdown",
+    html: "markup", xml: "markup", "c++": "cpp", "c#": "csharp",
+  };
+
+  function normalizePrismLang(lang) {
+    var l = (lang || "").toLowerCase();
+    return PRISM_LANG_ALIASES[l] || l;
+  }
+
   function codeBlockHtml(lang, code) {
     var id = "cb-" + Math.random().toString(36).slice(2, 9);
-    var label = lang && lang !== "text" ? lang : "codice";
+    var hasLang = !!(lang && lang !== "text");
+    var label = hasLang ? lang : "codice";
+    var langClass = hasLang ? ' class="language-' + escapeHtml(normalizePrismLang(lang)) + '"' : "";
     return (
       '<div class="code-block"><div class="code-block-head"><span>' +
       escapeHtml(label) +
@@ -835,10 +850,21 @@
       '<svg viewBox="0 0 24 24" width="12" height="12"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2"/></svg>' +
       "Copia</button></div><pre><code id=\"" +
       id +
-      '">' +
+      '"' + langClass + '>' +
       code +
       "</code></pre></div>"
     );
+  }
+
+  function highlightCodeIn(container) {
+    if (typeof Prism === "undefined" || !container) return;
+    var blocks = container.querySelectorAll(".code-block code[class*='language-']:not([data-highlighted])");
+    blocks.forEach(function (el) {
+      try {
+        Prism.highlightElement(el);
+        el.setAttribute("data-highlighted", "1");
+      } catch (e) { /* leave plain, unhighlighted text */ }
+    });
   }
 
   function splitTableRow(line) {
