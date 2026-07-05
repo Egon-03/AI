@@ -911,6 +911,19 @@ pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius
   .sidebar-open { display: flex; }
   .welcome { padding-top: 8vh; }
   .msg.user .msg-body { max-width: 92%; }
+
+  /* Give the chat title priority over the header's secondary controls,
+     which were squeezing it down to a couple of characters. */
+  .model-badge { display: none; }
+  .model-select {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 10px;
+    padding-right: 22px;
+    flex-shrink: 0;
+  }
 }
 
 @media (min-width: 861px) {
