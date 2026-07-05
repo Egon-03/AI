@@ -170,10 +170,8 @@
       if (!state.conversations.length) return;
       if (confirm("Eliminare tutta la cronologia delle chat? L'operazione non è reversibile.")) {
         state.conversations = [];
-        state.currentId = null;
         saveConversations();
-        renderHistory();
-        showWelcome();
+        startNewConversation();
       }
     });
 
