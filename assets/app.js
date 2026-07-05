@@ -36,7 +36,6 @@
     attachBtn: document.getElementById("attachBtn"),
     imageInput: document.getElementById("imageInput"),
     attachmentsPreview: document.getElementById("attachmentsPreview"),
-    webSearchBtn: document.getElementById("webSearchBtn"),
     loginForm: document.getElementById("loginForm"),
     loginPassword: document.getElementById("loginPassword"),
     loginBtn: document.getElementById("loginBtn"),
@@ -49,7 +48,6 @@
     streaming: false,
     abortController: null,
     pendingAttachments: [],
-    webSearchForced: false,
   };
 
   init();
@@ -275,11 +273,6 @@
       els.imageInput.value = "";
     });
 
-    els.webSearchBtn.addEventListener("click", function () {
-      state.webSearchForced = !state.webSearchForced;
-      els.webSearchBtn.classList.toggle("active", state.webSearchForced);
-      els.webSearchBtn.setAttribute("aria-pressed", String(state.webSearchForced));
-    });
     els.input.addEventListener("paste", function (e) {
       var items = (e.clipboardData && e.clipboardData.items) || [];
       var imageFiles = [];
@@ -557,15 +550,13 @@
     var didFallback = false;
     var showTag = isAutoMode || hasImages;
 
-    // groq/compound* already runs its own built-in web search — Tavily is
-    // only useful (and only requested) for the other models, either when
-    // the user forced it with the composer button or when the message
-    // looks like it needs live/current info.
+    // Ask the Worker for Tavily web search whenever the message looks like
+    // it needs live/current info, or whenever groq/compound is the model in
+    // use — compound has its own built-in search, but that alone was seen
+    // to sometimes come back empty (see the earlier empty-reply fix), so
+    // Tavily results are added alongside it as extra grounding, not instead.
     var isCompoundModel = /^groq\/compound/.test(resolvedModel);
-    var webSearch = !isCompoundModel && (state.webSearchForced || needsWebSearch(lastUserMsg ? lastUserMsg.content : ""));
-    state.webSearchForced = false;
-    els.webSearchBtn.classList.remove("active");
-    els.webSearchBtn.setAttribute("aria-pressed", "false");
+    var webSearch = isCompoundModel || needsWebSearch(lastUserMsg ? lastUserMsg.content : "");
 
     setStreamingUI(true);
     var msgEl = appendMessageEl("assistant", "", true, showTag ? resolvedModel : null);

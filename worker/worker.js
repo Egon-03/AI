@@ -17,18 +17,16 @@
  *   4. (optional) set ALLOWED_ORIGIN in wrangler.toml to your GitHub Pages
  *      / custom domain to restrict who can call this worker.
  *   5. (optional) wrangler secret put TAVILY_API_KEY — get a free key at
- *      https://app.tavily.com/home. Lets models other than groq/compound
- *      (which already has its own built-in web search) ground their answer
- *      in real web search results when the frontend asks for it. If not
- *      set, web search requests are silently skipped and the model answers
- *      from its own knowledge as before.
+ *      https://app.tavily.com/home. Grounds the model's answer in real web
+ *      search results when the frontend asks for it (automatically, for
+ *      messages that look like they need live/current info, and always
+ *      alongside groq/compound's own built-in search). If not set, web
+ *      search requests are silently skipped and the model answers from its
+ *      own knowledge as before.
  */
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const TAVILY_ENDPOINT = "https://api.tavily.com/search";
-// groq/compound and groq/compound-mini already run their own web search —
-// asking Tavily for them too would just add latency for no benefit.
-const COMPOUND_MODEL_PATTERN = /^groq\/compound/;
 
 function timingSafeEqual(a, b) {
   const len = Math.max(a.length, b.length);
@@ -130,7 +128,7 @@ export default {
     const modelId = body.model || "openai/gpt-oss-120b";
     const messages = body.messages.slice();
 
-    if (body.webSearch && env.TAVILY_API_KEY && !COMPOUND_MODEL_PATTERN.test(modelId)) {
+    if (body.webSearch && env.TAVILY_API_KEY) {
       const lastMessage = messages[messages.length - 1];
       const query = extractMessageText(lastMessage && lastMessage.content);
       if (query) {

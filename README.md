@@ -58,14 +58,14 @@ La password non finisce mai nel codice pubblico: viene verificata lato server da
 
 ### Ricerca web con Tavily (opzionale)
 
-Il modello `groq/compound` ha già una ricerca web integrata. Con una API key gratuita di [Tavily](https://app.tavily.com/home), anche gli **altri modelli** (che di norma rispondono solo con la loro conoscenza pregressa) possono cercare informazioni aggiornate sul web quando serve: automaticamente per domande che sembrano richiedere info live (es. "che tempo fa oggi"), oppure manualmente premendo il pulsante "Web" nella barra dei messaggi.
+Con una API key gratuita di [Tavily](https://app.tavily.com/home), il sito può cercare informazioni aggiornate sul web in automatico quando il messaggio sembra richiederle (es. "che tempo fa oggi"), e sempre quando è selezionato il modello `groq/compound`, come supporto aggiuntivo alla sua ricerca integrata (che a volte non trova nulla da sola).
 
 ```bash
 wrangler secret put TAVILY_API_KEY
 # incolla qui la API key generata su app.tavily.com
 ```
 
-Se questo secret non è impostato, il pulsante "Web" e il rilevamento automatico restano nell'interfaccia ma la ricerca viene semplicemente saltata: il modello risponde come prima, senza errori.
+Se questo secret non è impostato, la ricerca viene semplicemente saltata: il modello risponde come prima, senza errori.
 
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 
