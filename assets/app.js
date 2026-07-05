@@ -181,6 +181,18 @@
     return (label || "").replace(/\s*\(free\)\s*$/i, "").trim();
   }
 
+  // Confronta gli id ignorando il suffisso ":variante" (es. ":free") per
+  // capire se un modello OpenRouter è in realtà lo stesso modello già
+  // offerto da Groq (es. "openai/gpt-oss-120b" vs "openai/gpt-oss-120b:free").
+  function baseModelKey(id) {
+    return (id || "").split(":")[0].toLowerCase();
+  }
+
+  function isAlreadyOnGroq(openrouterModel) {
+    var key = baseModelKey(openrouterModel.id);
+    return (CONFIG.models || []).some(function (m) { return baseModelKey(m.id) === key; });
+  }
+
   // Scarica dal Worker l'elenco dei modelli attualmente gratuiti su
   // OpenRouter (prezzo 0 sia in input che in output). Richiesto in tempo
   // reale invece di essere una lista fissa in config.js perché OpenRouter
@@ -195,9 +207,9 @@
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
         if (data && Array.isArray(data.models) && data.models.length) {
-          state.openrouterModels = data.models.map(function (m) {
-            return { id: m.id, label: stripFreeSuffix(m.label) };
-          });
+          state.openrouterModels = data.models
+            .filter(function (m) { return !isAlreadyOnGroq(m); })
+            .map(function (m) { return { id: m.id, label: stripFreeSuffix(m.label) }; });
           renderModelOptions();
         }
       })
