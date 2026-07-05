@@ -1,9 +1,10 @@
 /**
- * Grassi AI — Cloudflare Worker proxy for the Groq API.
+ * Grassi AI — Cloudflare Worker proxy for Groq and OpenRouter.
  *
- * This worker exists so the Groq API key never has to live in the browser.
- * The frontend calls this worker, the worker attaches the secret key and
- * forwards the request to Groq, streaming the response straight back.
+ * This worker exists so API keys never have to live in the browser. The
+ * frontend calls this worker, the worker attaches the right secret key and
+ * forwards the request to the chosen provider, streaming the response
+ * straight back.
  *
  * Setup:
  *   1. wrangler deploy
@@ -16,17 +17,16 @@
  *      request is allowed).
  *   4. (optional) set ALLOWED_ORIGIN in wrangler.toml to your GitHub Pages
  *      / custom domain to restrict who can call this worker.
- *   5. (optional) wrangler secret put TAVILY_API_KEY — get a free key at
- *      https://app.tavily.com/home. Grounds the model's answer in real web
- *      search results when the frontend asks for it (automatically, for
- *      messages that look like they need live/current info, and always
- *      alongside groq/compound's own built-in search). If not set, web
- *      search requests are silently skipped and the model answers from its
- *      own knowledge as before.
+ *   5. (optional) wrangler secret put OPENROUTER_API_KEY — get a free key at
+ *      https://openrouter.ai/. Adds a second provider alongside Groq: the
+ *      frontend's model menu lists OpenRouter's currently free models
+ *      (fetched live from OpenRouter, so it never goes stale) under their
+ *      own group. If not set, that group is simply left empty.
  */
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const TAVILY_ENDPOINT = "https://api.tavily.com/search";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 
 function timingSafeEqual(a, b) {
   const len = Math.max(a.length, b.length);
@@ -35,35 +35,6 @@ function timingSafeEqual(a, b) {
     result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   }
   return result === 0;
-}
-
-function extractMessageText(content) {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    const textPart = content.find((part) => part.type === "text");
-    return textPart ? textPart.text : "";
-  }
-  return "";
-}
-
-async function tavilySearch(apiKey, query) {
-  const res = await fetch(TAVILY_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query, search_depth: "basic", max_results: 5, include_answer: false }),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return Array.isArray(data.results) ? data.results : null;
-}
-
-function formatSearchResults(results) {
-  return results
-    .map((r, i) => `${i + 1}. ${r.title || r.url} (${r.url})\n${(r.content || "").slice(0, 500)}`)
-    .join("\n\n");
 }
 
 export default {
@@ -115,81 +86,91 @@ export default {
       }
     }
 
+    if (body.listModels === "openrouter") {
+      if (!env.OPENROUTER_API_KEY) {
+        return new Response(JSON.stringify({ models: [] }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const res = await fetch(OPENROUTER_MODELS_ENDPOINT);
+        const data = res.ok ? await res.json() : null;
+        const models = ((data && data.data) || [])
+          .filter((m) => m.pricing && Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0)
+          .map((m) => ({ id: m.id, label: m.name || m.id }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        return new Response(JSON.stringify({ models }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        // Listing is best-effort: if OpenRouter is unreachable, the frontend
+        // just won't show the OpenRouter group for this session.
+        return new Response(JSON.stringify({ models: [] }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       // No chat messages: this is just a login check from the frontend.
       // The password already passed above, so confirm success without
-      // spending a Groq request.
+      // spending a request against either provider.
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const modelId = body.model || "openai/gpt-oss-120b";
-    const messages = body.messages.slice();
+    const provider = body.provider === "openrouter" ? "openrouter" : "groq";
 
-    if (body.webSearch && env.TAVILY_API_KEY) {
-      const lastMessage = messages[messages.length - 1];
-      const query = extractMessageText(lastMessage && lastMessage.content);
-      if (query) {
-        try {
-          const results = await tavilySearch(env.TAVILY_API_KEY, query);
-          if (results && results.length) {
-            // Insert as a system message right before the current user
-            // message (not after) so the last message stays the user's
-            // turn — required for the image-content-array case, and it
-            // also keeps the search context closest to the question it's
-            // meant to help answer.
-            messages.splice(messages.length - 1, 0, {
-              role: "system",
-              content:
-                "Risultati di ricerca web aggiornati (fonte: Tavily). Usali se pertinenti per rispondere in modo accurato e aggiornato, citando le fonti quando utile. " +
-                "Prima di rispondere, verifica che le date e i fatti che citi siano coerenti tra loro (es. non affermare che un evento è in corso in un certo intervallo di date e poi negare che accada in un giorno incluso in quell'intervallo):\n\n" +
-                formatSearchResults(results),
-            });
-          }
-        } catch (e) {
-          // Web search is best-effort: if Tavily is down or errors out,
-          // continue without it rather than failing the whole chat request.
-        }
-      }
+    if (provider === "openrouter" && !env.OPENROUTER_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "OPENROUTER_API_KEY is not configured on this worker. Run: wrangler secret put OPENROUTER_API_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const groqPayload = {
-      model: modelId,
-      messages: messages,
+    const endpoint = provider === "openrouter" ? OPENROUTER_ENDPOINT : GROQ_ENDPOINT;
+    const apiKey = provider === "openrouter" ? env.OPENROUTER_API_KEY : env.GROQ_API_KEY;
+    const providerHeaders =
+      provider === "openrouter"
+        ? { "HTTP-Referer": env.ALLOWED_ORIGIN || "https://openrouter.ai", "X-Title": "Grassi AI" }
+        : {};
+
+    const chatPayload = {
+      model: body.model || "openai/gpt-oss-120b",
+      messages: body.messages,
       stream: true,
-      // Search-grounded answers (dates, current events, scores) need the
-      // model to stay close to the retrieved facts rather than sampling
-      // creatively — high temperature was seen to produce self-contradictory
-      // answers (e.g. stating a race runs through today, then denying it
-      // happens today) even when the retrieved facts were correct.
-      temperature: body.webSearch ? 0.2 : 0.7,
-      // No max_tokens cap: let Groq use each model's own default ceiling.
+      temperature: 0.7,
+      // No max_tokens cap: let each provider use its own default ceiling.
       // A fixed low cap (this used to be 2048) silently truncates long
       // code/calculation answers mid-stream with no closing ``` or \],
       // which then renders as broken raw markdown instead of a code
       // block or formula.
     };
 
-    const groqResponse = await fetch(GROQ_ENDPOINT, {
+    const providerResponse = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.GROQ_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...providerHeaders,
       },
-      body: JSON.stringify(groqPayload),
+      body: JSON.stringify(chatPayload),
     });
 
-    if (!groqResponse.ok || !groqResponse.body) {
-      const errText = await groqResponse.text();
+    if (!providerResponse.ok || !providerResponse.body) {
+      const errText = await providerResponse.text();
       return new Response(errText, {
-        status: groqResponse.status,
+        status: providerResponse.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(groqResponse.body, {
+    return new Response(providerResponse.body, {
       status: 200,
       headers: {
         ...corsHeaders,

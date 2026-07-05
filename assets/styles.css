@@ -758,9 +758,6 @@ body.authed .login-screen { display: none; }
   0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
   30% { transform: translateY(-4px); opacity: 1; }
 }
-.typing-dots.web-search-pending { display: inline-flex; vertical-align: middle; padding: 0; margin-right: 8px; }
-.web-search-status { font-size: 0.9em; color: var(--text-muted); }
-
 /* ---------------------------------------------------------------
    Composer
 --------------------------------------------------------------- */
