@@ -813,23 +813,6 @@ body.authed .login-screen { display: none; }
 .attach-btn:hover { background: rgba(0,0,0,0.06); color: var(--text); }
 :root[data-theme="dark"] .attach-btn:hover { background: rgba(255,255,255,0.08); }
 
-.web-search-btn {
-  flex-shrink: 0;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.web-search-btn:hover { background: rgba(0,0,0,0.06); color: var(--text); }
-:root[data-theme="dark"] .web-search-btn:hover { background: rgba(255,255,255,0.08); }
-.web-search-btn.active { background: var(--accent-soft); color: var(--accent); }
-.web-search-label { white-space: nowrap; }
-
 .send-btn, .stop-btn {
   flex-shrink: 0;
   width: 36px;
@@ -943,9 +926,6 @@ pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius
     padding-right: 22px;
     flex-shrink: 0;
   }
-
-  .web-search-btn { padding: 0; width: 36px; justify-content: center; }
-  .web-search-label { display: none; }
 }
 
 @media (min-width: 861px) {
