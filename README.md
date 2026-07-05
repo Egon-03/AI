@@ -56,6 +56,17 @@ Qualunque password tra quelle impostate (fino a 3) sblocca l'accesso al sito.
 
 La password non finisce mai nel codice pubblico: viene verificata lato server dal Worker a ogni richiesta. Per cambiarla in futuro basta rilanciare lo stesso comando; per rimuovere del tutto la protezione, esegui `wrangler secret delete SITE_PASSWORD` (o `SITE_PASSWORD_2` / `SITE_PASSWORD_3`).
 
+### Ricerca web con Tavily (opzionale)
+
+Il modello `groq/compound` ha già una ricerca web integrata. Con una API key gratuita di [Tavily](https://app.tavily.com/home), anche gli **altri modelli** (che di norma rispondono solo con la loro conoscenza pregressa) possono cercare informazioni aggiornate sul web quando serve: automaticamente per domande che sembrano richiedere info live (es. "che tempo fa oggi"), oppure manualmente premendo il pulsante "Web" nella barra dei messaggi.
+
+```bash
+wrangler secret put TAVILY_API_KEY
+# incolla qui la API key generata su app.tavily.com
+```
+
+Se questo secret non è impostato, il pulsante "Web" e il rilevamento automatico restano nell'interfaccia ma la ricerca viene semplicemente saltata: il modello risponde come prima, senza errori.
+
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 
 ```

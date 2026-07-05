@@ -36,6 +36,7 @@
     attachBtn: document.getElementById("attachBtn"),
     imageInput: document.getElementById("imageInput"),
     attachmentsPreview: document.getElementById("attachmentsPreview"),
+    webSearchBtn: document.getElementById("webSearchBtn"),
     loginForm: document.getElementById("loginForm"),
     loginPassword: document.getElementById("loginPassword"),
     loginBtn: document.getElementById("loginBtn"),
@@ -48,6 +49,7 @@
     streaming: false,
     abortController: null,
     pendingAttachments: [],
+    webSearchForced: false,
   };
 
   init();
@@ -165,6 +167,17 @@
     return found ? found.label : id;
   }
 
+  // Condiviso tra il router "auto" (sotto) e needsWebSearch: frasi che
+  // suggeriscono che la risposta richieda informazioni aggiornate/live.
+  var LIVE_INFO_PATTERN = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
+
+  // True se il messaggio sembra richiedere informazioni aggiornate/live,
+  // usato per decidere se chiedere al Worker di interrogare Tavily prima
+  // di generare la risposta (solo per modelli senza ricerca integrata).
+  function needsWebSearch(text) {
+    return LIVE_INFO_PATTERN.test((text || "").toLowerCase());
+  }
+
   // Sceglie un modello reale al posto di "auto", in base al contenuto
   // dell'ultimo messaggio dell'utente. Euristica semplice e trasparente:
   // niente chiamate extra, nessun costo aggiuntivo, scelta mostrata
@@ -172,13 +185,12 @@
   function pickAutoModel(text) {
     var t = (text || "").toLowerCase();
 
-    var livePattern = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
     var mathPattern = /\b(calcola|quanto fa|risolvi|equazione|integrale|derivata|percentuale)\b|\d[\d\s+\-*/^%=]{3,}\d/;
     var visionPattern = /\b(immagine|foto|screenshot|nell'immagine)\b/;
     var codePattern = /```|\b(codice|funzione|bug|debug|script|python|javascript|typescript|java|c\+\+|c#|sql|html|css|refactor|libreria|framework|regex|json|api)\b/;
     var reasoningPattern = /\b(spiega (in dettaglio|passo passo|passo per passo)|analizza|confronta|pro e contro|dimostra|argomenta|approfondisci|strategia|pianifica|valuta)\b/;
 
-    if (livePattern.test(t)) return "groq/compound";
+    if (LIVE_INFO_PATTERN.test(t)) return "groq/compound";
     if (codePattern.test(t)) return "qwen/qwen3.6-27b";
     if (mathPattern.test(t)) return "groq/compound";
     if (visionPattern.test(t)) return "qwen/qwen3.6-27b";
@@ -261,6 +273,12 @@
     els.imageInput.addEventListener("change", function () {
       addAttachments(els.imageInput.files);
       els.imageInput.value = "";
+    });
+
+    els.webSearchBtn.addEventListener("click", function () {
+      state.webSearchForced = !state.webSearchForced;
+      els.webSearchBtn.classList.toggle("active", state.webSearchForced);
+      els.webSearchBtn.setAttribute("aria-pressed", String(state.webSearchForced));
     });
     els.input.addEventListener("paste", function (e) {
       var items = (e.clipboardData && e.clipboardData.items) || [];
@@ -539,10 +557,22 @@
     var didFallback = false;
     var showTag = isAutoMode || hasImages;
 
+    // groq/compound* already runs its own built-in web search — Tavily is
+    // only useful (and only requested) for the other models, either when
+    // the user forced it with the composer button or when the message
+    // looks like it needs live/current info.
+    var isCompoundModel = /^groq\/compound/.test(resolvedModel);
+    var webSearch = !isCompoundModel && (state.webSearchForced || needsWebSearch(lastUserMsg ? lastUserMsg.content : ""));
+    state.webSearchForced = false;
+    els.webSearchBtn.classList.remove("active");
+    els.webSearchBtn.setAttribute("aria-pressed", "false");
+
     setStreamingUI(true);
     var msgEl = appendMessageEl("assistant", "", true, showTag ? resolvedModel : null);
     var contentEl = msgEl.querySelector(".msg-content");
-    contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    contentEl.innerHTML = webSearch
+      ? '<div class="typing-dots web-search-pending"><span></span><span></span><span></span></div><span class="web-search-status">Cerco sul web&hellip;</span>'
+      : '<div class="typing-dots"><span></span><span></span><span></span></div>';
 
     var controller = new AbortController();
     state.abortController = controller;
@@ -612,6 +642,7 @@
           model: modelToUse,
           stream: true,
           messages: payloadMessages,
+          webSearch: webSearch,
           password: localStorage.getItem(AUTH_KEY) || "",
         }),
         signal: controller.signal,
