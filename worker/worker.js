@@ -78,11 +78,15 @@ export default {
     }
 
     const groqPayload = {
-      model: body.model || "llama-3.3-70b-versatile",
+      model: body.model || "openai/gpt-oss-120b",
       messages: body.messages,
       stream: true,
       temperature: 0.7,
-      max_tokens: 2048,
+      // No max_tokens cap: let Groq use each model's own default ceiling.
+      // A fixed low cap (this used to be 2048) silently truncates long
+      // code/calculation answers mid-stream with no closing ``` or \],
+      // which then renders as broken raw markdown instead of a code
+      // block or formula.
     };
 
     const groqResponse = await fetch(GROQ_ENDPOINT, {

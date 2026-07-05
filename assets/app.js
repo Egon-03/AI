@@ -593,6 +593,7 @@
         renderPending = false;
         if (finished) return;
         contentEl.innerHTML = renderMarkdown(assistantText);
+        renderMathIn(contentEl);
         if (withCursor) {
           var last = contentEl.lastElementChild;
           if (last) last.classList.add("cursor");
@@ -708,6 +709,7 @@
       return;
     }
     contentEl.innerHTML = renderMarkdown(finalText);
+    renderMathIn(contentEl);
     msgEl.dataset.raw = finalText;
 
     convo.messages.push({ role: "assistant", content: finalText, modelUsed: modelUsed || null });
@@ -761,6 +763,7 @@
     content.className = "msg-content";
     if (!isStreamingPlaceholder) {
       content.innerHTML = role === "assistant" ? renderMarkdown(text) : escapeHtml(text).replace(/\n/g, "<br>");
+      if (role === "assistant") renderMathIn(content);
     }
     body.appendChild(content);
 
@@ -838,16 +841,75 @@
     );
   }
 
+  function splitTableRow(line) {
+    var t = line.trim();
+    if (t.charAt(0) === "|") t = t.slice(1);
+    if (t.charAt(t.length - 1) === "|") t = t.slice(0, -1);
+    return t.split("|").map(function (c) { return c.trim(); });
+  }
+
+  function extractTables(text) {
+    var lines = text.split("\n");
+    var out = [];
+    var tableBlocks = [];
+    var separatorPattern = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      var next = i + 1 < lines.length ? lines[i + 1].trim() : "";
+      if (line.indexOf("|") !== -1 && line !== "" && separatorPattern.test(next)) {
+        var header = splitTableRow(line);
+        var rows = [];
+        var j = i + 2;
+        while (j < lines.length && lines[j].trim().indexOf("|") !== -1 && lines[j].trim() !== "") {
+          rows.push(splitTableRow(lines[j]));
+          j++;
+        }
+        var idx = tableBlocks.length;
+        tableBlocks.push({ header: header, rows: rows });
+        out.push("___TABLEBLOCK_" + idx + "___");
+        i = j - 1;
+      } else {
+        out.push(lines[i]);
+      }
+    }
+    return { text: out.join("\n"), tableBlocks: tableBlocks };
+  }
+
+  function tableBlockHtml(block) {
+    var head = "<tr>" + block.header.map(function (c) { return "<th>" + inlineFormat(c) + "</th>"; }).join("") + "</tr>";
+    var body = block.rows.map(function (row) {
+      return "<tr>" + row.map(function (c) { return "<td>" + inlineFormat(c) + "</td>"; }).join("") + "</tr>";
+    }).join("");
+    return '<div class="table-wrap"><table><thead>' + head + "</thead><tbody>" + body + "</tbody></table></div>";
+  }
+
   function renderMarkdown(raw) {
     if (!raw) return "";
     var escaped = escapeHtml(raw);
     var codeBlocks = [];
+    var mathBlocks = [];
 
     var text = escaped.replace(/```([a-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g, function (m, lang, code) {
       var idx = codeBlocks.length;
       codeBlocks.push({ lang: lang || "text", code: code.replace(/\n$/, "") });
       return "\n___CODEBLOCK_" + idx + "___\n";
     });
+
+    text = text.replace(/\\\[([\s\S]*?)\\\]/g, function (m, tex) {
+      var idx = mathBlocks.length;
+      mathBlocks.push({ tex: tex.trim(), display: true });
+      return "\n___MATHBLOCK_" + idx + "___\n";
+    });
+    text = text.replace(/\\\(([\s\S]*?)\\\)/g, function (m, tex) {
+      var idx = mathBlocks.length;
+      mathBlocks.push({ tex: tex.trim(), display: false });
+      return "___MATHBLOCK_" + idx + "___";
+    });
+
+    var tablesResult = extractTables(text);
+    text = tablesResult.text;
+    var tableBlocks = tablesResult.tableBlocks;
 
     var lines = text.split("\n");
     var html = "";
@@ -875,6 +937,12 @@
 
       var cbMatch = trimmed.match(/^___CODEBLOCK_(\d+)___$/);
       if (cbMatch) { flushPara(); closeList(); html += "___CODEBLOCK_" + cbMatch[1] + "___"; continue; }
+
+      var mbMatch = trimmed.match(/^___MATHBLOCK_(\d+)___$/);
+      if (mbMatch) { flushPara(); closeList(); html += "___MATHBLOCK_" + mbMatch[1] + "___"; continue; }
+
+      var tbMatch = trimmed.match(/^___TABLEBLOCK_(\d+)___$/);
+      if (tbMatch) { flushPara(); closeList(); html += "___TABLEBLOCK_" + tbMatch[1] + "___"; continue; }
 
       var hMatch = trimmed.match(/^(#{1,3})\s+(.*)$/);
       if (hMatch) {
@@ -917,7 +985,36 @@
       return codeBlockHtml(block.lang, block.code);
     });
 
+    html = html.replace(/___MATHBLOCK_(\d+)___/g, function (m, idx) {
+      var block = mathBlocks[Number(idx)];
+      var tag = block.display ? "div" : "span";
+      return (
+        "<" + tag + ' class="katex-target" data-display="' + (block.display ? "1" : "0") + '" data-tex="' + block.tex + '">' +
+        block.tex +
+        "</" + tag + ">"
+      );
+    });
+
+    html = html.replace(/___TABLEBLOCK_(\d+)___/g, function (m, idx) {
+      return tableBlockHtml(tableBlocks[Number(idx)]);
+    });
+
     return html;
+  }
+
+  function renderMathIn(container) {
+    if (typeof katex === "undefined" || !container) return;
+    var targets = container.querySelectorAll(".katex-target:not([data-rendered])");
+    targets.forEach(function (el) {
+      var tex = el.getAttribute("data-tex") || "";
+      var displayMode = el.getAttribute("data-display") === "1";
+      try {
+        katex.render(tex, el, { throwOnError: false, displayMode: displayMode });
+        el.setAttribute("data-rendered", "1");
+      } catch (e) {
+        /* leave the raw-text fallback already in the element */
+      }
+    });
   }
 
 })();
