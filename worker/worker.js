@@ -1,10 +1,9 @@
 /**
- * Grassi AI — Cloudflare Worker proxy for Groq and OpenRouter.
+ * Grassi AI — Cloudflare Worker proxy for the Groq API.
  *
- * This worker exists so API keys never have to live in the browser. The
- * frontend calls this worker, the worker attaches the right secret key and
- * forwards the request to the chosen provider, streaming the response
- * straight back.
+ * This worker exists so the Groq API key never has to live in the browser.
+ * The frontend calls this worker, the worker attaches the secret key and
+ * forwards the request to Groq, streaming the response straight back.
  *
  * Setup:
  *   1. wrangler deploy
@@ -17,16 +16,9 @@
  *      request is allowed).
  *   4. (optional) set ALLOWED_ORIGIN in wrangler.toml to your GitHub Pages
  *      / custom domain to restrict who can call this worker.
- *   5. (optional) wrangler secret put OPENROUTER_API_KEY — get a free key at
- *      https://openrouter.ai/. Adds a second provider alongside Groq: the
- *      frontend's model menu lists OpenRouter's currently free models
- *      (fetched live from OpenRouter, so it never goes stale) under their
- *      own group. If not set, that group is simply left empty.
  */
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 
 function timingSafeEqual(a, b) {
   const len = Math.max(a.length, b.length);
@@ -86,91 +78,46 @@ export default {
       }
     }
 
-    if (body.listModels === "openrouter") {
-      if (!env.OPENROUTER_API_KEY) {
-        return new Response(JSON.stringify({ models: [] }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      try {
-        const res = await fetch(OPENROUTER_MODELS_ENDPOINT);
-        const data = res.ok ? await res.json() : null;
-        const models = ((data && data.data) || [])
-          .filter((m) => m.pricing && Number(m.pricing.prompt) === 0 && Number(m.pricing.completion) === 0)
-          .map((m) => ({ id: m.id, label: m.name || m.id }))
-          .sort((a, b) => a.label.localeCompare(b.label));
-        return new Response(JSON.stringify({ models }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (e) {
-        // Listing is best-effort: if OpenRouter is unreachable, the frontend
-        // just won't show the OpenRouter group for this session.
-        return new Response(JSON.stringify({ models: [] }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       // No chat messages: this is just a login check from the frontend.
       // The password already passed above, so confirm success without
-      // spending a request against either provider.
+      // spending a Groq request.
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const provider = body.provider === "openrouter" ? "openrouter" : "groq";
-
-    if (provider === "openrouter" && !env.OPENROUTER_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "OPENROUTER_API_KEY is not configured on this worker. Run: wrangler secret put OPENROUTER_API_KEY" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const endpoint = provider === "openrouter" ? OPENROUTER_ENDPOINT : GROQ_ENDPOINT;
-    const apiKey = provider === "openrouter" ? env.OPENROUTER_API_KEY : env.GROQ_API_KEY;
-    const providerHeaders =
-      provider === "openrouter"
-        ? { "HTTP-Referer": env.ALLOWED_ORIGIN || "https://openrouter.ai", "X-Title": "Grassi AI" }
-        : {};
-
-    const chatPayload = {
+    const groqPayload = {
       model: body.model || "openai/gpt-oss-120b",
       messages: body.messages,
       stream: true,
       temperature: 0.7,
-      // No max_tokens cap: let each provider use its own default ceiling.
+      // No max_tokens cap: let Groq use each model's own default ceiling.
       // A fixed low cap (this used to be 2048) silently truncates long
       // code/calculation answers mid-stream with no closing ``` or \],
       // which then renders as broken raw markdown instead of a code
       // block or formula.
     };
 
-    const providerResponse = await fetch(endpoint, {
+    const groqResponse = await fetch(GROQ_ENDPOINT, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${env.GROQ_API_KEY}`,
         "Content-Type": "application/json",
-        ...providerHeaders,
       },
-      body: JSON.stringify(chatPayload),
+      body: JSON.stringify(groqPayload),
     });
 
-    if (!providerResponse.ok || !providerResponse.body) {
-      const errText = await providerResponse.text();
+    if (!groqResponse.ok || !groqResponse.body) {
+      const errText = await groqResponse.text();
       return new Response(errText, {
-        status: providerResponse.status,
+        status: groqResponse.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(providerResponse.body, {
+    return new Response(groqResponse.body, {
       status: 200,
       headers: {
         ...corsHeaders,
