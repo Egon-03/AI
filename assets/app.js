@@ -613,6 +613,7 @@
     // whether *this* message has an image.
     var hasImages = !!(lastUserMsg && lastUserMsg.images && lastUserMsg.images.length);
     var resolvedModel = hasImages ? VISION_MODEL : (isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel);
+    var originalRequestedModel = resolvedModel;
     var currentModel = resolvedModel;
     var didFallback = false;
     var showTag = isAutoMode || hasImages;
@@ -662,6 +663,20 @@
         actions.insertBefore(tag, actions.firstChild);
       }
       tag.textContent = getModelLabel(modelId);
+    }
+
+    // A fallback substitution otherwise only shows up as a tiny model-tag
+    // that's hidden until the message is hovered — easy to miss, which made
+    // it look like OpenRouter models "don't work" when really they were
+    // failing and quietly being answered by Groq instead. This note is
+    // always visible so a fallback is never silent.
+    function showFallbackNote() {
+      if (msgEl.querySelector(".fallback-note")) return;
+      var note = document.createElement("div");
+      note.className = "fallback-note";
+      note.textContent =
+        getModelLabel(originalRequestedModel) + " non ha risposto (errore o limite di richieste del provider) — risposta generata da " + getModelLabel(FALLBACK_MODEL) + ".";
+      contentEl.parentNode.insertBefore(note, contentEl);
     }
 
     function scheduleRender(withCursor) {
@@ -794,6 +809,7 @@
             assistantText = "";
             contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
             updateModelTag(FALLBACK_MODEL);
+            showFallbackNote();
             sendChatRequest(FALLBACK_MODEL, true);
             return;
           }
