@@ -8,10 +8,17 @@ window.APP_CONFIG = {
   // l'URL stampato in console (es. "https://grassi-ai-proxy.tuonome.workers.dev").
   workerUrl: "https://grassi-ai-proxy.egon-grassi2003.workers.dev/",
 
-  // Modello Groq da usare. Vedi https://console.groq.com/docs/models
+  // Modello Groq usato di default. Vedi https://console.groq.com/docs/models
   // (llama-3.3-70b-versatile è stato dichiarato deprecato da Groq il 17/06/2026,
   // dismissione prevista ad agosto 2026 — gpt-oss-120b è il sostituto consigliato).
   model: "openai/gpt-oss-120b",
+
+  // Modelli selezionabili dal menu nell'header. "id" è il nome esatto del
+  // modello per l'API Groq, "label" è il nome mostrato nell'interfaccia.
+  models: [
+    { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
+    { id: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2" },
+  ],
 
   // Messaggio di sistema che definisce la personalit&agrave; dell'assistente.
   systemPrompt:

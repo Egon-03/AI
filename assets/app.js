@@ -5,6 +5,7 @@
   var STORAGE_KEY = "lumen.conversations.v1";
   var THEME_KEY = "lumen.theme";
   var AUTH_KEY = "grassiai.auth";
+  var MODEL_KEY = "grassiai.model";
 
   var els = {
     app: document.getElementById("app"),
@@ -19,6 +20,7 @@
     logoutBtn: document.getElementById("logoutBtn"),
     headerTitle: document.getElementById("headerTitle"),
     modelBadgeText: document.getElementById("modelBadgeText"),
+    modelSelect: document.getElementById("modelSelect"),
     chatScroll: document.getElementById("chatScroll"),
     welcome: document.getElementById("welcome"),
     messages: document.getElementById("messages"),
@@ -48,6 +50,7 @@
     bindLoginEvents();
     renderHistory();
     applyBranding();
+    initModelSelect();
     if (localStorage.getItem(AUTH_KEY)) {
       document.body.classList.add("authed");
     }
@@ -123,6 +126,29 @@
     var composerHint = document.getElementById("composerHint");
     if (composerHint) composerHint.textContent = name + " può commettere errori. Verifica le informazioni importanti.";
     els.input.placeholder = "Scrivi un messaggio a " + name + "...";
+  }
+
+  // ---------------------------------------------------------------
+  // Model selection
+  // ---------------------------------------------------------------
+  function getSelectedModel() {
+    return localStorage.getItem(MODEL_KEY) || CONFIG.model;
+  }
+
+  function initModelSelect() {
+    var models = CONFIG.models && CONFIG.models.length ? CONFIG.models : [{ id: CONFIG.model, label: CONFIG.model }];
+    var current = getSelectedModel();
+    els.modelSelect.innerHTML = "";
+    models.forEach(function (m) {
+      var opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.label;
+      if (m.id === current) opt.selected = true;
+      els.modelSelect.appendChild(opt);
+    });
+    els.modelSelect.addEventListener("change", function () {
+      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
+    });
   }
 
   // ---------------------------------------------------------------
@@ -401,7 +427,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: CONFIG.model,
+        model: getSelectedModel(),
         stream: true,
         messages: payloadMessages,
         password: localStorage.getItem(AUTH_KEY) || "",
