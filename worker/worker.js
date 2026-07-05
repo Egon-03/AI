@@ -16,9 +16,19 @@
  *      request is allowed).
  *   4. (optional) set ALLOWED_ORIGIN in wrangler.toml to your GitHub Pages
  *      / custom domain to restrict who can call this worker.
+ *   5. (optional) wrangler secret put TAVILY_API_KEY — get a free key at
+ *      https://app.tavily.com/home. Lets models other than groq/compound
+ *      (which already has its own built-in web search) ground their answer
+ *      in real web search results when the frontend asks for it. If not
+ *      set, web search requests are silently skipped and the model answers
+ *      from its own knowledge as before.
  */
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const TAVILY_ENDPOINT = "https://api.tavily.com/search";
+// groq/compound and groq/compound-mini already run their own web search —
+// asking Tavily for them too would just add latency for no benefit.
+const COMPOUND_MODEL_PATTERN = /^groq\/compound/;
 
 function timingSafeEqual(a, b) {
   const len = Math.max(a.length, b.length);
@@ -27,6 +37,35 @@ function timingSafeEqual(a, b) {
     result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
   }
   return result === 0;
+}
+
+function extractMessageText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const textPart = content.find((part) => part.type === "text");
+    return textPart ? textPart.text : "";
+  }
+  return "";
+}
+
+async function tavilySearch(apiKey, query) {
+  const res = await fetch(TAVILY_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, search_depth: "basic", max_results: 5, include_answer: false }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data.results) ? data.results : null;
+}
+
+function formatSearchResults(results) {
+  return results
+    .map((r, i) => `${i + 1}. ${r.title || r.url} (${r.url})\n${(r.content || "").slice(0, 500)}`)
+    .join("\n\n");
 }
 
 export default {
@@ -88,9 +127,38 @@ export default {
       });
     }
 
+    const modelId = body.model || "openai/gpt-oss-120b";
+    const messages = body.messages.slice();
+
+    if (body.webSearch && env.TAVILY_API_KEY && !COMPOUND_MODEL_PATTERN.test(modelId)) {
+      const lastMessage = messages[messages.length - 1];
+      const query = extractMessageText(lastMessage && lastMessage.content);
+      if (query) {
+        try {
+          const results = await tavilySearch(env.TAVILY_API_KEY, query);
+          if (results && results.length) {
+            // Insert as a system message right before the current user
+            // message (not after) so the last message stays the user's
+            // turn — required for the image-content-array case, and it
+            // also keeps the search context closest to the question it's
+            // meant to help answer.
+            messages.splice(messages.length - 1, 0, {
+              role: "system",
+              content:
+                "Risultati di ricerca web aggiornati (fonte: Tavily). Usali se pertinenti per rispondere in modo accurato e aggiornato, citando le fonti quando utile:\n\n" +
+                formatSearchResults(results),
+            });
+          }
+        } catch (e) {
+          // Web search is best-effort: if Tavily is down or errors out,
+          // continue without it rather than failing the whole chat request.
+        }
+      }
+    }
+
     const groqPayload = {
-      model: body.model || "openai/gpt-oss-120b",
-      messages: body.messages,
+      model: modelId,
+      messages: messages,
       stream: true,
       temperature: 0.7,
       // No max_tokens cap: let Groq use each model's own default ceiling.
