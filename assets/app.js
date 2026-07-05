@@ -47,11 +47,13 @@
     bindEvents();
     bindLoginEvents();
     renderHistory();
-    autoResizeTextarea();
     applyBranding();
     if (localStorage.getItem(AUTH_KEY)) {
       document.body.classList.add("authed");
     }
+    // Runs after the "authed" class (if any) is applied, since the composer
+    // is hidden (display:none) until then and scrollHeight would read as 0.
+    autoResizeTextarea();
   }
 
   // ---------------------------------------------------------------
@@ -84,6 +86,7 @@
         localStorage.setItem(AUTH_KEY, pw);
         els.loginPassword.value = "";
         document.body.classList.add("authed");
+        autoResizeTextarea();
       })
       .catch(function () {
         els.loginError.textContent = "Password errata, riprova.";

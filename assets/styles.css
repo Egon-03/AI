@@ -9,6 +9,7 @@
   --text: #1a1d24;
   --text-muted: #666e7f;
   --text-faint: #99a1b1;
+  --placeholder: #6b7386;
 
   --accent: #3661e0;
   --accent-hover: #2b4fc4;
@@ -50,6 +51,7 @@
   --text: #e7e9ee;
   --text-muted: #9aa1b1;
   --text-faint: #666d7d;
+  --placeholder: #b7bdc9;
 
   --accent: #6f93ff;
   --accent-hover: #86a4ff;
@@ -65,7 +67,7 @@
   --inline-code-bg: #262b37;
 
   --glass-bg: rgba(20, 22, 30, 0.42);
-  --glass-bg-strong: rgba(27, 30, 39, 0.66);
+  --glass-bg-strong: rgba(40, 44, 56, 0.82);
   --glass-border: rgba(255, 255, 255, 0.10);
   --glass-blur: 22px;
   --backdrop-1: rgba(111, 147, 255, 0.30);
@@ -85,6 +87,7 @@
     --text: #e7e9ee;
     --text-muted: #9aa1b1;
     --text-faint: #666d7d;
+    --placeholder: #b7bdc9;
 
     --accent: #6f93ff;
     --accent-hover: #86a4ff;
@@ -100,7 +103,7 @@
     --inline-code-bg: #262b37;
 
     --glass-bg: rgba(20, 22, 30, 0.42);
-    --glass-bg-strong: rgba(27, 30, 39, 0.66);
+    --glass-bg-strong: rgba(40, 44, 56, 0.82);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-blur: 22px;
     --backdrop-1: rgba(111, 147, 255, 0.30);
@@ -162,7 +165,8 @@ body.authed .login-screen { display: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100svh;
   padding: 20px;
 }
 
@@ -228,7 +232,8 @@ body.authed .login-screen { display: none; }
 --------------------------------------------------------------- */
 .app {
   grid-template-columns: var(--sidebar-w) 1fr;
-  height: 100dvh;
+  height: 100vh;
+  height: 100svh;
   overflow: hidden;
 }
 
@@ -709,6 +714,8 @@ body.authed .login-screen { display: none; }
   align-items: flex-end;
   gap: 8px;
   background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 8px 8px 8px 18px;
@@ -727,7 +734,7 @@ body.authed .login-screen { display: none; }
   max-height: 200px;
   padding: 8px 0;
 }
-.composer-input::placeholder { color: var(--text-faint); }
+.composer-input::placeholder { color: var(--placeholder); opacity: 1; }
 
 .send-btn, .stop-btn {
   flex-shrink: 0;
