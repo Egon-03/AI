@@ -216,6 +216,21 @@
   // groq/compound (che ha una ricerca web integrata).
   var LIVE_INFO_PATTERN = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
 
+  // Per le domande di programmazione, la modalità "Automatico" preferisce
+  // un modello gratuito di OpenRouter esplicitamente dedicato al coding
+  // (es. "Qwen3 Coder"), se ne è stato scaricato uno dal Worker; altrimenti
+  // ricade su Qwen di Groq come prima. Le altre categorie restano tutte su
+  // Groq: i modelli gratuiti di OpenRouter hanno limiti di frequenza molto
+  // più stretti (circa 20 richieste al minuto), quindi non conviene
+  // instradarci anche il traffico generico/di default, che romperebbe
+  // "Automatico" molto più spesso.
+  function pickCoderModel() {
+    var coder = state.openrouterModels.filter(function (m) {
+      return /coder/i.test(m.label) || /coder/i.test(m.id);
+    })[0];
+    return coder ? coder.id : "qwen/qwen3.6-27b";
+  }
+
   // Sceglie un modello reale al posto di "auto", in base al contenuto
   // dell'ultimo messaggio dell'utente. Euristica semplice e trasparente:
   // niente chiamate extra, nessun costo aggiuntivo, scelta mostrata
@@ -229,7 +244,7 @@
     var reasoningPattern = /\b(spiega (in dettaglio|passo passo|passo per passo)|analizza|confronta|pro e contro|dimostra|argomenta|approfondisci|strategia|pianifica|valuta)\b/;
 
     if (LIVE_INFO_PATTERN.test(t)) return "groq/compound";
-    if (codePattern.test(t)) return "qwen/qwen3.6-27b";
+    if (codePattern.test(t)) return pickCoderModel();
     if (mathPattern.test(t)) return "groq/compound";
     if (visionPattern.test(t)) return "qwen/qwen3.6-27b";
     if (reasoningPattern.test(t) || t.length > 400) return "openai/gpt-oss-120b";
