@@ -71,11 +71,11 @@ Fai commit e push della modifica.
 
 ## 4. Pubblica su GitHub Pages
 
-Il repository include già un workflow (`.github/workflows/deploy-pages.yml`) che pubblica automaticamente il sito a ogni push su `main`.
-
 1. Vai su **Settings → Pages** del repository.
-2. In **Source**, seleziona **GitHub Actions**.
-3. Fai push su `main`: il workflow "Deploy to GitHub Pages" partirà da solo e pubblicherà il sito su `https://<utente>.github.io/<repo>/`.
+2. In **Source**, seleziona **Deploy from a branch**, poi scegli `main` e cartella `/ (root)`.
+3. Ogni push su `main` ricostruisce automaticamente il sito su `https://<utente>.github.io/<repo>/` (o sul tuo dominio custom, se configurato).
+
+> Non usare la sorgente "GitHub Actions" con un workflow personalizzato insieme a questa modalità: le due pubblicazioni possono entrare in conflitto e far fallire il deploy con l'errore "Deployment failed, try again later.".
 
 ## 5. Custom domain
 
