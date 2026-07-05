@@ -667,6 +667,14 @@ body.authed .login-screen { display: none; }
 @media (hover: none) {
   .msg-actions { opacity: 1; }
 }
+.model-tag {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
 .msg-actions button {
   display: flex;
   align-items: center;
