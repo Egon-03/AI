@@ -19,12 +19,12 @@ window.APP_CONFIG = {
   // "label" è il nome mostrato nell'interfaccia. "auto" è un valore
   // speciale gestito da assets/app.js: analizza il messaggio e sceglie da
   // solo il modello reale più adatto tra quelli elencati qui sotto.
+  // (Kimi K2 è stato rimosso: Groq lo ha deprecato il 23/03/2026.)
   models: [
     { id: "auto", label: "Automatico" },
     { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
     { id: "openai/gpt-oss-20b", label: "GPT-OSS 20B (veloce)" },
-    { id: "moonshotai/kimi-k2-instruct-0905", label: "Kimi K2 (coding)" },
-    { id: "qwen/qwen3.6-27b", label: "Qwen3.6 27B (visione)" },
+    { id: "qwen/qwen3.6-27b", label: "Qwen3.6 27B (coding + visione)" },
     { id: "groq/compound", label: "Compound (ricerca web)" },
     { id: "groq/compound-mini", label: "Compound Mini" },
   ],
