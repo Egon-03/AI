@@ -527,7 +527,11 @@
     var selectedModel = getSelectedModel();
     var isAutoMode = selectedModel === AUTO_VALUE;
     var lastUserMsg = convo.messages[convo.messages.length - 1];
-    var hasImages = !!(lastUserMsg && lastUserMsg.images && lastUserMsg.images.length);
+    // Once any message in the conversation carries an image, every later
+    // request must keep using the vision model: Groq rejects a request
+    // where a non-vision model sees array-style content anywhere in the
+    // history, not just in the latest message.
+    var hasImages = convo.messages.some(function (m) { return m.images && m.images.length; });
     var resolvedModel = hasImages ? VISION_MODEL : (isAutoMode ? pickAutoModel(lastUserMsg ? lastUserMsg.content : "") : selectedModel);
     var currentModel = resolvedModel;
     var didFallback = false;
