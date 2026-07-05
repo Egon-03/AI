@@ -45,7 +45,16 @@ wrangler secret put SITE_PASSWORD
 # scegli e incolla qui la password che vuoi usare per accedere al sito
 ```
 
-La password non finisce mai nel codice pubblico: viene verificata lato server dal Worker a ogni richiesta. Per cambiarla in futuro basta rilanciare lo stesso comando; per rimuovere del tutto la protezione, esegui `wrangler secret delete SITE_PASSWORD`.
+Se vuoi che più password diverse funzionino tutte (ad esempio una per te e una per altre persone), puoi impostare fino a 2 secret aggiuntivi, entrambi opzionali:
+
+```bash
+wrangler secret put SITE_PASSWORD_2
+wrangler secret put SITE_PASSWORD_3
+```
+
+Qualunque password tra quelle impostate (fino a 3) sblocca l'accesso al sito.
+
+La password non finisce mai nel codice pubblico: viene verificata lato server dal Worker a ogni richiesta. Per cambiarla in futuro basta rilanciare lo stesso comando; per rimuovere del tutto la protezione, esegui `wrangler secret delete SITE_PASSWORD` (o `SITE_PASSWORD_2` / `SITE_PASSWORD_3`).
 
 Al termine di `wrangler deploy`, in console vedrai un URL tipo:
 

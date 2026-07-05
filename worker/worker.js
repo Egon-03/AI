@@ -9,8 +9,11 @@
  *   1. wrangler deploy
  *   2. wrangler secret put GROQ_API_KEY
  *   3. (optional) wrangler secret put SITE_PASSWORD — protects the site with
- *      a single shared password, checked against the frontend's login screen.
- *      If not set, the password gate is disabled (any request is allowed).
+ *      a shared password, checked against the frontend's login screen.
+ *      You can also set SITE_PASSWORD_2 and SITE_PASSWORD_3 (both optional)
+ *      to allow up to 3 different valid passwords.
+ *      If none of the three are set, the password gate is disabled (any
+ *      request is allowed).
  *   4. (optional) set ALLOWED_ORIGIN in wrangler.toml to your GitHub Pages
  *      / custom domain to restrict who can call this worker.
  */
@@ -60,11 +63,19 @@ export default {
       });
     }
 
-    if (env.SITE_PASSWORD && !timingSafeEqual(String(body.password || ""), env.SITE_PASSWORD)) {
-      return new Response(JSON.stringify({ error: "Wrong password" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Up to 3 valid passwords — SITE_PASSWORD_2 and SITE_PASSWORD_3 are
+    // both optional. If none of the three secrets are set, the gate stays
+    // disabled (same behavior as before).
+    const validPasswords = [env.SITE_PASSWORD, env.SITE_PASSWORD_2, env.SITE_PASSWORD_3].filter(Boolean);
+    if (validPasswords.length > 0) {
+      const provided = String(body.password || "");
+      const isValid = validPasswords.some((pw) => timingSafeEqual(provided, pw));
+      if (!isValid) {
+        return new Response(JSON.stringify({ error: "Wrong password" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
