@@ -48,6 +48,7 @@
     streaming: false,
     abortController: null,
     pendingAttachments: [],
+    openrouterModels: [],
   };
 
   init();
@@ -62,6 +63,7 @@
     initModelSelect();
     if (localStorage.getItem(AUTH_KEY)) {
       document.body.classList.add("authed");
+      fetchOpenRouterModels();
     }
     // Runs after the "authed" class (if any) is applied, since the composer
     // is hidden (display:none) until then and scrollHeight would read as 0.
@@ -99,6 +101,7 @@
         els.loginPassword.value = "";
         document.body.classList.add("authed");
         autoResizeTextarea();
+        fetchOpenRouterModels();
       })
       .catch(function () {
         els.loginError.textContent = "Password errata, riprova.";
@@ -145,6 +148,18 @@
   }
 
   function initModelSelect() {
+    renderModelOptions();
+    els.modelSelect.addEventListener("change", function () {
+      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
+    });
+  }
+
+  // Ricostruisce le <option> del menu modelli: i modelli Groq fissi da
+  // config.js, seguiti (se disponibili) dal gruppo dei modelli gratuiti di
+  // OpenRouter scaricati in tempo reale. Va tenuta separata da
+  // initModelSelect perché viene richiamata di nuovo quando arriva la
+  // lista di OpenRouter, senza voler registrare due volte il listener.
+  function renderModelOptions() {
     var models = CONFIG.models && CONFIG.models.length ? CONFIG.models : [{ id: CONFIG.model, label: CONFIG.model }];
     var current = getSelectedModel();
     els.modelSelect.innerHTML = "";
@@ -155,26 +170,52 @@
       if (m.id === current) opt.selected = true;
       els.modelSelect.appendChild(opt);
     });
-    els.modelSelect.addEventListener("change", function () {
-      localStorage.setItem(MODEL_KEY, els.modelSelect.value);
-    });
+    if (state.openrouterModels.length) {
+      var group = document.createElement("optgroup");
+      group.label = "OpenRouter (gratis)";
+      state.openrouterModels.forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.label;
+        if (m.id === current) opt.selected = true;
+        group.appendChild(opt);
+      });
+      els.modelSelect.appendChild(group);
+    }
+  }
+
+  // Scarica dal Worker l'elenco dei modelli attualmente gratuiti su
+  // OpenRouter (prezzo 0 sia in input che in output). Richiesto in tempo
+  // reale invece di essere una lista fissa in config.js perché OpenRouter
+  // cambia spesso quali modelli sono gratuiti — lo stesso problema di
+  // deprecazione avuto più volte con i modelli Groq, qui evitato del tutto.
+  function fetchOpenRouterModels() {
+    fetch(CONFIG.workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listModels: "openrouter", password: localStorage.getItem(AUTH_KEY) || "" }),
+    })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (data && Array.isArray(data.models) && data.models.length) {
+          state.openrouterModels = data.models;
+          renderModelOptions();
+        }
+      })
+      .catch(function () {
+        // Best-effort: se OpenRouter non risponde, il menu resta con i soli modelli Groq.
+      });
   }
 
   function getModelLabel(id) {
-    var found = (CONFIG.models || []).filter(function (m) { return m.id === id; })[0];
+    var found = (CONFIG.models || []).concat(state.openrouterModels).filter(function (m) { return m.id === id; })[0];
     return found ? found.label : id;
   }
 
-  // Condiviso tra il router "auto" (sotto) e needsWebSearch: frasi che
-  // suggeriscono che la risposta richieda informazioni aggiornate/live.
+  // Usato dal router "auto" (sotto): frasi che suggeriscono che la
+  // risposta richieda informazioni aggiornate/live, per instradare verso
+  // groq/compound (che ha una ricerca web integrata).
   var LIVE_INFO_PATTERN = /\b(oggi|adesso|in questo momento|ultime notizie|notizie recenti|prezzo attuale|quotazione|meteo|previsioni del tempo|chi ha vinto|risultati di|classifica attuale|ultima versione|cerca (su internet|online)|news)\b/;
-
-  // True se il messaggio sembra richiedere informazioni aggiornate/live,
-  // usato per decidere se chiedere al Worker di interrogare Tavily prima
-  // di generare la risposta (solo per modelli senza ricerca integrata).
-  function needsWebSearch(text) {
-    return LIVE_INFO_PATTERN.test((text || "").toLowerCase());
-  }
 
   // Sceglie un modello reale al posto di "auto", in base al contenuto
   // dell'ultimo messaggio dell'utente. Euristica semplice e trasparente:
@@ -550,20 +591,10 @@
     var didFallback = false;
     var showTag = isAutoMode || hasImages;
 
-    // Ask the Worker for Tavily web search whenever the message looks like
-    // it needs live/current info, or whenever groq/compound is the model in
-    // use — compound has its own built-in search, but that alone was seen
-    // to sometimes come back empty (see the earlier empty-reply fix), so
-    // Tavily results are added alongside it as extra grounding, not instead.
-    var isCompoundModel = /^groq\/compound/.test(resolvedModel);
-    var webSearch = isCompoundModel || needsWebSearch(lastUserMsg ? lastUserMsg.content : "");
-
     setStreamingUI(true);
     var msgEl = appendMessageEl("assistant", "", true, showTag ? resolvedModel : null);
     var contentEl = msgEl.querySelector(".msg-content");
-    contentEl.innerHTML = webSearch
-      ? '<div class="typing-dots web-search-pending"><span></span><span></span><span></span></div><span class="web-search-status">Cerco sul web&hellip;</span>'
-      : '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    contentEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
 
     var controller = new AbortController();
     state.abortController = controller;
@@ -626,6 +657,12 @@
     }
 
     function sendChatRequest(modelToUse, isRetry) {
+      // OpenRouter's free models are always named "vendor/model:variant"
+      // (e.g. "deepseek/deepseek-r1:free") — the colon reliably tells them
+      // apart from Groq's plain "vendor/model" ids, no extra bookkeeping
+      // needed. This also means a retry that falls back to FALLBACK_MODEL
+      // (a Groq id) correctly switches provider back to Groq.
+      var provider = /:/.test(modelToUse) ? "openrouter" : "groq";
       fetch(CONFIG.workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -633,7 +670,7 @@
           model: modelToUse,
           stream: true,
           messages: payloadMessages,
-          webSearch: webSearch,
+          provider: provider,
           password: localStorage.getItem(AUTH_KEY) || "",
         }),
         signal: controller.signal,
